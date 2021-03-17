@@ -160,7 +160,7 @@ blocks:
     nconnections: '1'
     showports: 'True'
     type: complex
-    update_time: '0.1'
+    update_time: '0.01'
     wintype: window.WIN_BLACKMAN_hARRIS
   states:
     bus_sink: false
