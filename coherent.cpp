@@ -69,16 +69,16 @@ boost::barrier recv_bar(2);
   double tx_duration = 500e-6; //(10e-6);  // Transmission duration [s]
   double tr_on_lead = 1e-6;    // Time from GPIO output toggle on to TX [s]
   double tr_off_trail = 10e-6; // Time from TX off to GPIO output off [s]
-  double pulse_rep_int = 10e-3;//20e-3;    // Chirp period [s]
+  double pulse_rep_int = 100e-3;//20e-3;    // Chirp period [s]
   double tx_lead = 0e-6;       // Time between start of TX and RX [s]
   
   // Chirp Sequence Parameters
-  int coherent_sums = 1000; // Number of chirps
+  int coherent_sums = 10; // Number of chirps
   
   // Calculated Parameters
   double tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
   size_t num_tx_samps = tx_rate*tx_duration; // Total samples to transmit per chirp
-  size_t num_rx_samps = rx_rate*tx_duration*3; // Total samples to recieve per chirp
+  size_t num_rx_samps = rx_rate*tx_duration*10; // Total samples to recieve per chirp
 
 
 /*

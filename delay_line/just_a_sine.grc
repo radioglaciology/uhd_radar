@@ -75,7 +75,7 @@ blocks:
     alias: ''
     amp: '1'
     comment: ''
-    freq: '1000'
+    freq: '10000'
     maxoutbuf: '0'
     minoutbuf: '0'
     offset: '0'

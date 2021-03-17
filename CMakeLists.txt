@@ -8,8 +8,8 @@
 cmake_minimum_required(VERSION 3.5.1)
 project(INIT_USRP CXX)
 
-set(CMAKE_LIBRARY_PATH "/home/thomas/Apps/miniconda3/envs/uhd/lib")
-set(CMAKE_INCLUDE_PATH "/home/thomas/Apps/miniconda3/envs/uhd/include")
+set(CMAKE_LIBRARY_PATH "/home/thomas/apps/miniconda3/envs/uhd/lib")
+set(CMAKE_INCLUDE_PATH "/home/thomas/apps/miniconda3/envs/uhd/include")
 
 ### Configure Compiler ########################################################
 set(CMAKE_CXX_STANDARD 11)
@@ -26,7 +26,7 @@ endif()
 option(UHD_USE_STATIC_LIBS OFF)
 
 # To add UHD as a dependency to this project, add a line such as this:
-find_package(UHD 4.0.0 REQUIRED)
+find_package(UHD 3.15.0 REQUIRED)
 # The version in  ^^^^^  here is a minimum version.
 # To specify an exact version:
 #find_package(UHD 4.0.0 EXACT REQUIRED)

@@ -1,5 +1,5 @@
 
-t_total = 3*t1;
+t_total = 10*t1;
 n_samps = fs*t_total;
 dt = 1 / fs;
 bytes_per_samp = 4;
