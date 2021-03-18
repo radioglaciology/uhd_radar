@@ -66,19 +66,19 @@ boost::barrier recv_bar(2);
 
   // Chirp Parametres
   double time_offset = 1;    // Time before first receieve [s]
-  double tx_duration = 1.5; //(10e-6);  // Transmission duration [s]
+  double tx_duration = 30e-6; //(10e-6);  // Transmission duration [s]
   double tr_on_lead = 1e-6;    // Time from GPIO output toggle on to TX [s]
   double tr_off_trail = 10e-6; // Time from TX off to GPIO output off [s]
-  double pulse_rep_int = 3;//1000e-3;//20e-3;    // Chirp period [s]
-  double tx_lead = -100e-6;       // Time between start of TX and RX [s]
+  double pulse_rep_int = 10e-3;//1000e-3;//20e-3;    // Chirp period [s]
+  double tx_lead = 0e-6;       // Time between start of TX and RX [s]
   
   // Chirp Sequence Parameters
-  int coherent_sums = 3; // Number of chirps
+  int coherent_sums = 1; // Number of chirps
   
   // Calculated Parameters
   double tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
   size_t num_tx_samps = tx_rate*tx_duration; // Total samples to transmit per chirp
-  size_t num_rx_samps = rx_rate*tx_duration; // Total samples to recieve per chirp
+  size_t num_rx_samps = rx_rate*tx_duration*3; // Total samples to recieve per chirp
 
 
 /*
@@ -166,6 +166,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   usrp->set_tx_antenna(tx_ant);
   cout << boost::format("Actual TX Antenna: %s") 
     % usrp->get_tx_antenna() << endl << endl;
+    
+  cout << "INFO: Number of TX samples: " << num_tx_samps << endl;
+  cout << "INFO: Number of RX samples: " << num_rx_samps << endl;
 
   // set device timestamp
   cout << boost::format("Setting device timestamp to 0...") << endl;
@@ -207,7 +210,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   for(int i=0;i<coherent_sums;i++){ 
   
-    
+    sent_bar.wait();
   
     double rx_time = time_offset + (pulse_rep_int * i);
     double tx_time = rx_time - tx_lead;
@@ -232,7 +235,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     
     time_ms = (uhd::time_spec_t(rx_time).get_real_secs())*1000.0;
     cout << boost::format("Scheduling chirp %d RX for %0.3f ms\n") % i % time_ms;
-    sent_bar.wait();
     
     rx_stream->issue_stream_cmd(stream_cmd);
 
@@ -274,6 +276,8 @@ void transmit_worker(usrp::multi_usrp::sptr usrp){
 
   // tx streamer
   tx_streamer::sptr tx_stream = usrp->get_tx_stream(stream_args);
+  
+  cout << "INFO: get_max_num_samps: " << tx_stream->get_max_num_samps() << endl;
 
   // open file to stream from
   ifstream infile("../chirp.bin", ifstream::binary);
@@ -294,7 +298,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp){
     double tx_time = rx_time - tx_lead;
     double time_ms;
     
-    sent_bar.wait();
+    
 
 #ifdef USE_GPIO
     // GPIO Schedule
@@ -315,7 +319,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp){
         num_tx_samps);
 
     // Wait for the chirp to be recieved
-    
+    sent_bar.wait();
     recv_bar.wait();
   }
 }

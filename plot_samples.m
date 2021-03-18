@@ -1,15 +1,11 @@
 
-t_total = 10*t1;
+t_total = 3*t1;
 n_samps = fs*t_total;
 dt = 1 / fs;
 bytes_per_samp = 4;
 t = t:dt:(t_total-dt);
 
-n_plots = 4;
-
 f = fopen('rx_samps.bin');
-%f = fopen('../../test_data/20180128_seq/test8.bin');
-%f = fopen('chirp.bin')
 
 r_part = fread(f, n_samps, 'float', bytes_per_samp);
 fseek(f, bytes_per_samp, 'bof');
@@ -43,27 +39,24 @@ y_compare = [y 0*y];
 
 %% Xcor
 
-[acor, lag] = xcorr(y,z);
+[acor, lag] = xcorr(z,y);
 
-%subplot(n_plots,1,5)
 figure
+
 subplot(3,1,1)
-plot(1e6*(((1:length(acor))./fs) - t_total), abs(acor)/max(abs(acor)), 'LineWidth', 2)
-xlim([-inf, 100])
+plot(1e6*(((1:length(acor))./fs) - t_total), abs(acor)/max(abs(acor)))
+title('Normalized Cross-Correlation')
+%xlim([-inf, 100])
 xlabel('\muS')
+
 subplot(3,1,2)
-plot(1e6*(((1:length(acor))./fs) - t_total), log10(abs(acor)), 'LineWidth', 2)
-title('Cross-Correlation')
-xlim([-inf, 100])
+plot(1e6*(((1:length(acor))./fs) - t_total), log10(abs(acor)))
+%xlim([-inf, 100])
 xlabel('\muS')
-%xlim([-5 -1])
-%hold on
-%ylim([0 10])
+
 subplot(3,1,3)
 plot(real(z))
-
-set(gcf,'color','w');
-set(gca,'FontSize', 24);
+title('Samples')
 
 [~,I] = max(abs(acor));
 lagDiff = lag(I)
