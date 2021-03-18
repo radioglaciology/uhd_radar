@@ -56,29 +56,29 @@ boost::barrier recv_bar(2);
   uint32_t gpio_mask = (1 << num_bits) - 1;
 
   // RF
-  double rx_rate(56e6);  // RX Sample Rate [sps]
-  double tx_rate(56e6);  // TX Sample Rate [sps]
+  double rx_rate(14e6);  // RX Sample Rate [sps]
+  double tx_rate(14e6);  // TX Sample Rate [sps]
   double freq(435e6);    // 435 MHz Center Frequency
   double rx_gain(55);    // RX Gain [dB]
   double tx_gain(60.8);    // TX Gain [dB] - 60.8 is -10 dBm output
-  double bw(56e6);       // TX/RX Bandwidth [Hz]
+  double bw(14e6);       // TX/RX Bandwidth [Hz]
   double clk_rate(56e6); // Clock rate [Hz]
 
   // Chirp Parametres
-  double time_offset = 0.1;    // Time before first receieve [s]
-  double tx_duration = 500e-6; //(10e-6);  // Transmission duration [s]
+  double time_offset = 1;    // Time before first receieve [s]
+  double tx_duration = 1.5; //(10e-6);  // Transmission duration [s]
   double tr_on_lead = 1e-6;    // Time from GPIO output toggle on to TX [s]
   double tr_off_trail = 10e-6; // Time from TX off to GPIO output off [s]
-  double pulse_rep_int = 100e-3;//20e-3;    // Chirp period [s]
-  double tx_lead = 0e-6;       // Time between start of TX and RX [s]
+  double pulse_rep_int = 3;//1000e-3;//20e-3;    // Chirp period [s]
+  double tx_lead = -100e-6;       // Time between start of TX and RX [s]
   
   // Chirp Sequence Parameters
-  int coherent_sums = 10; // Number of chirps
+  int coherent_sums = 3; // Number of chirps
   
   // Calculated Parameters
   double tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
   size_t num_tx_samps = tx_rate*tx_duration; // Total samples to transmit per chirp
-  size_t num_rx_samps = rx_rate*tx_duration*10; // Total samples to recieve per chirp
+  size_t num_rx_samps = rx_rate*tx_duration; // Total samples to recieve per chirp
 
 
 /*
@@ -207,7 +207,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   for(int i=0;i<coherent_sums;i++){ 
   
-    sent_bar.wait();
+    
   
     double rx_time = time_offset + (pulse_rep_int * i);
     double tx_time = rx_time - tx_lead;
@@ -232,6 +232,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     
     time_ms = (uhd::time_spec_t(rx_time).get_real_secs())*1000.0;
     cout << boost::format("Scheduling chirp %d RX for %0.3f ms\n") % i % time_ms;
+    sent_bar.wait();
     
     rx_stream->issue_stream_cmd(stream_cmd);
 
@@ -292,6 +293,8 @@ void transmit_worker(usrp::multi_usrp::sptr usrp){
     double rx_time = time_offset + (pulse_rep_int * i);
     double tx_time = rx_time - tx_lead;
     double time_ms;
+    
+    sent_bar.wait();
 
 #ifdef USE_GPIO
     // GPIO Schedule
@@ -312,7 +315,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp){
         num_tx_samps);
 
     // Wait for the chirp to be recieved
-    sent_bar.wait();
+    
     recv_bar.wait();
   }
 }

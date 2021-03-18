@@ -3,11 +3,11 @@ set(0,'DefaultFigureWindowStyle','docked')
 
 % Generate a chirp and write to file
 
-fs = 56e6; % samples/second % 40e6
+fs = 14e6;%56e6; % samples/second % 40e6
 dt = 1/fs;
 f0 = 0e6; % Hz
 f1 = 5e6;%25e6; % Hz
-t1 = 500e-6; %10e-6; % seconds % 0.01
+t1 = 5;%500e-6; %10e-6; % seconds % 0.01
 
 t_zero = 0e-6;
 
