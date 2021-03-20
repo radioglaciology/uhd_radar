@@ -13,6 +13,7 @@
 #include <complex>
 
 //#define USE_GPIO
+//#define AVERAGE_BEFORE_SAVE
 
 using namespace std;
 using namespace uhd;
@@ -69,11 +70,11 @@ boost::barrier recv_bar(2);
   double tx_duration = 30e-6; //(10e-6);  // Transmission duration [s]
   double tr_on_lead = 1e-6;    // Time from GPIO output toggle on to TX [s]
   double tr_off_trail = 10e-6; // Time from TX off to GPIO output off [s]
-  double pulse_rep_int = 10e-3;//1000e-3;//20e-3;    // Chirp period [s]
+  double pulse_rep_int = 50e-3;//1000e-3;//20e-3;    // Chirp period [s]
   double tx_lead = 0e-6;       // Time between start of TX and RX [s]
   
   // Chirp Sequence Parameters
-  int coherent_sums = 1; // Number of chirps
+  int coherent_sums = 1000; // Number of chirps
   
   // Calculated Parameters
   double tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
@@ -241,11 +242,19 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     recieve_samples(rx_stream, num_rx_samps, sample_sum);
 
     cout << "Recieved chirp " << i << " [samples: " << num_rx_samps << "]" << endl;
+    
+#ifndef AVERAGE_BEFORE_SAVE
+    if (outfile.is_open())
+        outfile.write((const char*)&sample_sum.front(),
+            num_rx_samps*sizeof(complex<float>));
+#endif
 
     
     recv_bar.wait();
   }
 
+#ifdef AVERAGE_BEFORE_SAVE
+  cout << "Calculing mean and saving to file..." << endl;
   // Average
   for(int i=0;i<num_rx_samps;i++){
     sample_sum[i] = sample_sum[i] / ((float) coherent_sums);
@@ -254,7 +263,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   if (outfile.is_open())
     outfile.write((const char*)&sample_sum.front(),
         num_rx_samps*sizeof(complex<float>));
-
+#endif
 
   /*** WRAP UP ***/
   
@@ -375,7 +384,11 @@ void recieve_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
     
     // add samples
     for(int i=0;i<n_samps;i++){
+#ifdef AVERAGE_BEFORE_SAVE
       res[num_acc_samps + i] += buff[i];
+#else
+      res[num_acc_samps + i] = buff[i];
+#endif
     } // TODO
 
     num_acc_samps += n_samps;

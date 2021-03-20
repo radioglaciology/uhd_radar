@@ -1,6 +1,8 @@
+rx_length_multiplier = 3;
+samples_saved = 10;
 
-t_total = 3*t1;
-n_samps = fs*t_total;
+n_samps = length(y)*rx_length_multiplier*samples_saved;
+t_total = n_samps / fs
 dt = 1 / fs;
 bytes_per_samp = 4;
 t = t:dt:(t_total-dt);
@@ -14,10 +16,10 @@ fclose(f);
 
 z = complex(r_part, i_part);
 
-y_compare = [y 0*y];
+
 
 %%
-
+% y_compare = [y 0*y];
 % figure
 % subplot(n_plots,1,1)
 % plot(t, real(y_compare))
@@ -51,6 +53,7 @@ xlabel('\muS')
 
 subplot(3,1,2)
 plot(1e6*(((1:length(acor))./fs) - t_total), log10(abs(acor)))
+title('Log Cross Correlation')
 %xlim([-inf, 100])
 xlabel('\muS')
 
