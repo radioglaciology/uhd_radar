@@ -61,7 +61,7 @@ boost::barrier recv_bar(2);
   double tx_rate(14e6);  // TX Sample Rate [sps]
   double freq(435e6);    // 435 MHz Center Frequency
   double rx_gain(55);    // RX Gain [dB]
-  double tx_gain(89.8);    // TX Gain [dB] - 60.8 is -10 dBm output
+  double tx_gain(60.8);    // TX Gain [dB] - 60.8 is -10 dBm output
   double bw(14e6);       // TX/RX Bandwidth [Hz]
   double clk_rate(56e6); // Clock rate [Hz]
 
