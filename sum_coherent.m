@@ -26,14 +26,14 @@ if false
 end
 
 % add noise
-sigma = 3;
+sigma = 0;
 z_prestack = z_prestack + sigma*randn(size(z_prestack)) + j*sigma*randn(size(z_prestack));
 
 
 %% sum and estimate
 
 figure
-sum_range = 1:50:999;
+sum_range = [1 100 999]; %1:50:999;
 snrs = zeros(length(sum_range),1);
 
 for idx = 1:length(sum_range)
@@ -45,7 +45,7 @@ for idx = 1:length(sum_range)
     cor_power = 20*log10(abs(acor));
 
     plot(cor_power)
-    xlim([1000 2300])
+    xlim([1300 1400])
     ylim([-40, 50])
     xlabel('Lag [samples]')
     ylabel('Cross Correlation Power [dB]')
@@ -64,7 +64,7 @@ end
 
 %% Distribution of phase
 
-plot_first_samples_n = 10
+plot_first_samples_n = 1000
 
 if plot_first_samples_n > 0
     figure
@@ -85,7 +85,7 @@ for idx = 1:samples_saved
     lagDiff = lag(I);
     pkMag = abs(acor(I));
     pkAng = angle(acor(I));
-    [lagDiff pkMag pkAng]
+    [lagDiff pkMag pkAng];
     
     peak_xcor_lag(idx) = lagDiff;
     peak_xcor_ang(idx) = pkAng;

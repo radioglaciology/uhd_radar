@@ -61,7 +61,7 @@ boost::barrier recv_bar(2);
   double tx_rate(14e6);  // TX Sample Rate [sps]
   double freq(435e6);    // 435 MHz Center Frequency
   double rx_gain(55);    // RX Gain [dB]
-  double tx_gain(60.8);    // TX Gain [dB] - 60.8 is -10 dBm output
+  double tx_gain(89.8);    // TX Gain [dB] - 60.8 is -10 dBm output
   double bw(14e6);       // TX/RX Bandwidth [Hz]
   double clk_rate(56e6); // Clock rate [Hz]
 
@@ -70,11 +70,11 @@ boost::barrier recv_bar(2);
   double tx_duration = 30e-6; //(10e-6);  // Transmission duration [s]
   double tr_on_lead = 1e-6;    // Time from GPIO output toggle on to TX [s]
   double tr_off_trail = 10e-6; // Time from TX off to GPIO output off [s]
-  double pulse_rep_int = 50e-3;//1000e-3;//20e-3;    // Chirp period [s]
+  double pulse_rep_int = 40e-3;//1000e-3;//20e-3;    // Chirp period [s]
   double tx_lead = 0e-6;       // Time between start of TX and RX [s]
   
   // Chirp Sequence Parameters
-  int coherent_sums = 1000; // Number of chirps
+  int coherent_sums = 1500; // Number of chirps
   
   // Calculated Parameters
   double tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
