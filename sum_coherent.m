@@ -8,6 +8,7 @@ bytes_per_samp = 4;
 t = t:dt:(t_total-dt);
 
 f = fopen('rx_samps.bin');
+%f = fopen('figures/20210329-stick-radar-driveway-data/rx_samps_walking_around.bin');
 
 r_part = fread(f, n_samps, 'float', bytes_per_samp);
 fseek(f, bytes_per_samp, 'bof');
@@ -19,7 +20,7 @@ z = complex(r_part, i_part);
 z_prestack = reshape(z, [length(y)*rx_length_multiplier, samples_saved]);
 
 if false
-    z_ref = z_prestack(:,2);
+    z_ref = z_prestack(:,2);l
     for idx = 1:samples_saved
         z_prestack(:,idx) = z_ref;
     end
@@ -33,7 +34,7 @@ z_prestack = z_prestack + sigma*randn(size(z_prestack)) + j*sigma*randn(size(z_p
 %% sum and estimate
 
 figure
-sum_range = [1 100 999]; %1:50:999;
+sum_range = [1 100 499 999]; %1:50:999;
 snrs = zeros(length(sum_range),1);
 
 for idx = 1:length(sum_range)
@@ -45,13 +46,13 @@ for idx = 1:length(sum_range)
     cor_power = 20*log10(abs(acor));
 
     plot(cor_power)
-    xlim([1300 1400])
-    ylim([-40, 50])
+    xlim([2100 2300])
+    ylim([-30, 25])
     xlabel('Lag [samples]')
     ylabel('Cross Correlation Power [dB]')
     title(sprintf('Cross Correlation Power with %d samples summed', n_sums))
 
-    valid_range = cor_power(1000:2300);
+    valid_range = cor_power(1500:3900);
     [~,I] = max(valid_range);
     noise_floor_samples = [valid_range(1:I-10); valid_range(I+10:end)];
     signal = valid_range(I);
@@ -59,12 +60,12 @@ for idx = 1:length(sum_range)
     snr = signal-noise
     snrs(idx) = signal - noise;
     drawnow
-    pause(1)
+    pause(2)
 end
 
 %% Distribution of phase
 
-plot_first_samples_n = 1000
+plot_first_samples_n = 500
 
 if plot_first_samples_n > 0
     figure
