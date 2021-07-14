@@ -13,7 +13,7 @@
 #include <complex>
 
 //#define USE_GPIO
-//#define AVERAGE_BEFORE_SAVE
+#define AVERAGE_BEFORE_SAVE = true;
 
 using namespace std;
 using namespace uhd;
@@ -45,7 +45,8 @@ boost::barrier recv_bar(2);
   /*** CONFIGURATION PARAMETERS ***/
   
   // DEVICE
-  string device_args("serial=30EF570"); // device addr  "serial=30EF570"
+  // string device_args("serial=30EF570"); // device addr  "serial=30EF570"
+  string device_args("serial=312A195"); // device addr "serial=312A195"
   string subdev("A:A");
   string tx_ant("TX/RX");
   string rx_ant("RX2");
@@ -57,24 +58,24 @@ boost::barrier recv_bar(2);
   uint32_t gpio_mask = (1 << num_bits) - 1;
 
   // RF
-  double rx_rate(56e6);  // RX Sample Rate [sps]
-  double tx_rate(56e6);  // TX Sample Rate [sps]
-  double freq(435e6);    // 435 MHz Center Frequency
+  double rx_rate(56e6);  // RX Sample Rate [sps], originally 56e6
+  double tx_rate(56e6);  // TX Sample Rate [sps], originally 56e6
+  double freq(3e6);    // Center Frequency, originally 435 MHz
   double rx_gain(55);    // RX Gain [dB]
   double tx_gain(80.8);    // TX Gain [dB] - 60.8 is -10 dBm output
-  double bw(56e6);       // TX/RX Bandwidth [Hz]
+  double bw(5e6);       // TX/RX Bandwidth [Hz], originally 56e6
   double clk_rate(56e6); // Clock rate [Hz]
 
   // Chirp Parametres
   double time_offset = 1;    // Time before first receieve [s]
-  double tx_duration = 12e-6; //(10e-6);  // Transmission duration [s]
+  double tx_duration = 1e-5; //(10e-6);  // Transmission duration [s], originally 12e-6
   double tr_on_lead = 1e-6;    // Time from GPIO output toggle on to TX [s]
   double tr_off_trail = 10e-6; // Time from TX off to GPIO output off [s]
   double pulse_rep_int = 40e-3;//1000e-3;//20e-3;    // Chirp period [s]
   double tx_lead = 0e-6;       // Time between start of TX and RX [s]
   
   // Chirp Sequence Parameters
-  int coherent_sums = 1000; // Number of chirps
+  int coherent_sums = 1000; // Number of chirps, originally 1000
   
   // Calculated Parameters
   double tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
