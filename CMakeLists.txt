@@ -27,6 +27,7 @@ option(UHD_USE_STATIC_LIBS OFF)
 
 # To add UHD as a dependency to this project, add a line such as this:
 find_package(UHD 3.15.0 REQUIRED)
+find_package(yaml-cpp REQUIRED)
 # The version in  ^^^^^  here is a minimum version.
 # To specify an exact version:
 #find_package(UHD 4.0.0 EXACT REQUIRED)
@@ -46,6 +47,7 @@ include(UHDBoost)
 include_directories(
     ${Boost_INCLUDE_DIRS}
     ${UHD_INCLUDE_DIRS}
+    ${YAML_CPP_INCLUDE_DIR}
 )
 link_directories(${Boost_LIBRARY_DIRS})
 
@@ -58,7 +60,7 @@ set(CMAKE_BUILD_TYPE "Release")
 # anything else we need (in this case, some Boost libraries):
 if(NOT UHD_USE_STATIC_LIBS)
     message(STATUS "Linking against shared UHD library.")
-    target_link_libraries(radar ${UHD_LIBRARIES} ${Boost_LIBRARIES})
+    target_link_libraries(radar ${UHD_LIBRARIES} ${Boost_LIBRARIES} ${YAML_CPP_LIBRARIES})
 # Shared library case: All we need to do is link against the library, and
 # anything else we need (in this case, some Boost libraries):
 else(NOT UHD_USE_STATIC_LIBS)
