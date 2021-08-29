@@ -1,54 +1,62 @@
-# --- Can use triple dashes to delimit different documents 
-#     if storing multiple sets of configuration parameters.
+# This is a configuration file meant for the Ettus USRP B205mini-i
 
 # ----------------------- Chirp generation ------------------------ #
 GENERATE:
-   sample_rate:   &s_rate 56e6 # Of the generated chirp [sps]
-   start_freq:    1e6          # [Hz]
-   end_freq:      20e6         # [Hz]
-   signal_time:   1e-5         # [s]
-   out_file:      &ch_to_send "chirp.bin"  # The name of the output binary file
+    sample_rate: &s_rate 56e6        # Of the generated chirp [sps]
+    start_freq: 1e6                  # [Hz]
+    end_freq: 20e6                   # [Hz]
+    signal_time: 1e-5                # [s]
+    out_file: &ch_sent "chirp.bin"   # The name of the output binary file
 
 # ----------------- TX/RX for USRP_B205mini-i --------------------- #
-DEVICE: 
-   device_args:   "serial=312A195"  # device address
-   subdev:        "A:A"
-   tx_ant:        "TX/RX"
-   rx_ant:        "RX2"
-   clk_ref:       "internal"
+DEVICE:
+    device_args: "serial=312A195"   # device address
+    subdev: "A:A"
+    tx_ant: "TX/RX"
+    rx_ant: "RX2"
+    clk_ref: "internal"
 GPIO:
-   gpio:          "aFP0"
-   num_bits:      8
+    gpio: "aFP0"
+    num_bits: 8
 RF:
-   rx_rate:       *s_rate   # RX Sample Rate [sps]
-   tx_rate:       *s_rate   # TX Sample Rate [sps]
-   freq:          100e6     # Center Frequency (for mixing)
-   rx_gain:       55        # RX Gain [dB]
-   tx_gain:       80.8      # TX Gain [dB] - 60.8 is -10 dBm output
-   bw:            56e6      # TX/RW Bandwidth [Hz]
-   clk_rate:      56e6      # Clock Rate [Hz]
+    rx_rate: *s_rate     # RX Sample Rate [sps]
+    tx_rate: *s_rate     # TX Sample Rate [sps]
+    freq: 325e6          # Center Frequency (for mixing)
+    rx_gain: 60          # 55 # RX Gain [dB]
+    tx_gain: 80.8        # TX Gain [dB] - 60.8 is -10 dBm output
+    bw: 56e6             # TX/RW Bandwidth [Hz]
+    clk_rate: 56e6       # Clock Rate [Hz]
 CHIRP:
-   time_offset:   1      # Time before first receive [s]
-   tx_duration:   12e-6  # Transmission duration [s]
-   tr_on_lead:    1e-6   # Time from GPIO output toggle on to TX [s]
-   tr_off_trail:  10e-6  # Time from TX off to GPIO output off [s]
-   pulse_rep_int: 40e-3  # Chirp period [s]
-   tx_lead:       0e-6   # Time between start of TX and RX[s]
+    time_offset: 1       # Time before first receive [s]
+    tx_duration: 12e-6   # Transmission duration [s]
+    tr_on_lead: 1e-6     # Time from GPIO output toggle on to TX [s]
+    tr_off_trail: 10e-6  # Time from TX off to GPIO output off [s]
+    pulse_rep_int: 40e-3 # Chirp period [s]
+    tx_lead: 0e+0        # Time between start of TX and RX[s]
 SEQUENCE:
-   coherent_sums: 100   # Number of chirps to average or sum
+    coherent_sums: &coh_sums 7500        # No. of chirps to coherently sum
 FILES:
-   chirp_loc: *ch_to_send              # Chirp to transmit
-   save_loc: &save_loc "rx_samps.bin"  # Save rx data here
-   
-# -------------------------- Processing --------------------------- #
-PROCESS:
-   rx_samps:     "rx_samps_7_21_roble_20bw.bin" # *save_loc     # Receive data to use
-   orig_chirp:   *ch_to_send   # Chirp associated with receive data
-   sample_rate:  *s_rate 
-   sig_speed:    3e8    # Speed of signal through medium [m/s]
-   direct_start: 20     # Start search for direct path @ this sample
-   by_sample:    true   # Search for echo peak based on sample 
-   echo_start:   5      # Start search for echo @ this no. of samps. after direct path  [samples]
-   by_distance:  true  # Search for echo peak based on distance estimation
-   echo_dist:    50    # Distance to echoing surface [m]
-   samp_buff:    5      # Start search this no. of samps. before estimated echo [samples]
+    chirp_loc: *ch_sent                 # Chirp to transmit
+    save_loc: &save_loc "rx_samps.bin"  # Save rx data here
+    
+# -------------------------- Plot Samples --------------------------- #
+PLOT:
+    rx_samps: "rx_samps.bin"       # Receive data to use
+    orig_chirp: *ch_sent           # Chirp associated with receive data
+    sample_rate: *s_rate
+    sig_speed: 3e8                 # Speed of signal through medium [m/s]
+    direct_start: &dir_start 20    # Start search for direct path @ this sample
+    echo_start: 10                 # Start search for echo @ this # of samps. after direct path
+
+# --------------------------- Noise Test -----------------------------#
+NOISE:
+    rx_samps: *save_loc         # Receive data to use
+    orig_chirp: *ch_sent        # Chirp associated with receive data
+    sample_rate: *s_rate
+    noise_std: 6                # Standard deviation for white noise generation
+    coherent_sums: *coh_sums    # Number of sums to eliminate noise.
+    direct_start: *dir_start    # Sample at which to start search for direct path
+    show_graphs: False          # For debugging
+    describe: False             # For debugging
+
+

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from ruamel.yaml import YAML as ym
 
 # Initialize constants
-yaml = ym(typ='safe')
+yaml = ym(typ='safe')                  # Always use safe load if not dumping
 with open("config.yaml") as stream:
     config = yaml.load(stream)
     gen_params = config["GENERATE"]
@@ -14,8 +14,11 @@ with open("config.yaml") as stream:
     signal_time = gen_params["signal_time"]
     filename = gen_params["out_file"]
     n_samples = int(signal_time * sample_rate)
+    
+print("--- Loaded constants from config.yaml ---")
 
 # Build chirp
+print("--- Building Chirp ---")
 samples = np.zeros(n_samples)
 for x in range (n_samples):
     samples[x] = x/sample_rate   # time values
@@ -32,7 +35,7 @@ plt.title('Linear Up Chirp')
 plt.show()
 
 # Convert to file 
-
+print("--- Converting Chirp to File ---")
 chirp_floats = np.empty(shape=(2* np.shape(chirp)[0],), dtype=np.float32)
 for x in range(np.shape(chirp_complex)[0]):
     chirp_floats[2*x] = chirp_complex[x].real
@@ -41,7 +44,11 @@ for x in range(np.shape(chirp_complex)[0]):
 chirp_floats.tofile(filename, sep='', format='%f')
 
 # Read file just to check success
-# recov_floats = np.fromfile(filename, dtype=np.float32, count=-1, sep='', offset=0)
+recov_floats = np.fromfile(filename, dtype=np.float32, count=-1, sep='', offset=0)
+if np.array_equiv(recov_floats, chirp_floats):
+    print("\tChirp successfully stored in %s" % filename)
+else:
+    print("\tChirp was not successfully stored in %s" % filename)
 
 
 
