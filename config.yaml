@@ -10,7 +10,7 @@ GENERATE:
 
 # ----------------- TX/RX for USRP_B205mini-i --------------------- #
 DEVICE:
-    device_args: "serial=312A195"   # device address
+    device_args: ""   # device address
     subdev: "A:A"
     tx_ant: "TX/RX"
     rx_ant: "RX2"
@@ -34,7 +34,7 @@ CHIRP:
     pulse_rep_int: 40e-3 # Chirp period [s]
     tx_lead: 0e+0        # Time between start of TX and RX[s]
 SEQUENCE:
-    coherent_sums: &coh_sums 7500        # No. of chirps to coherently sum
+    coherent_sums: &coh_sums 1000        # No. of chirps to coherently sum
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
     save_loc: &save_loc "rx_samps.bin"  # Save rx data here
