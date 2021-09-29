@@ -5,9 +5,9 @@ set(0,'DefaultFigureWindowStyle','docked')
 
 fs = 56e6;%56e6; % samples/second % 40e6
 dt = 1/fs;
-f0 = 0e6; % Hz
-f1 = 28e6;%25e6; % Hz
-t1 = 10e-6;%500e-6; %10e-6; % seconds % 0.01
+f0 = 1e6; % Hz
+f1 = 20e6;%25e6; % Hz
+t1 = 1e-5;%500e-6; %10e-6; % seconds % 0.01
 
 t_zero_before = 1e-6; % seconds - pad with zeros before
 t_zero_after = 1e-6; % seconds - pad with zeros after
