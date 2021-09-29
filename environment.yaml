@@ -1,0 +1,10 @@
+name: uhd
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8
+  - uhd
+  - scipy
+  - matplotlib
+  - yaml-cpp
