@@ -46,7 +46,7 @@ boost::barrier recv_bar(2);
 
   /*** CONFIGURATION PARAMETERS ***/
 // Access root Node
-YAML::Node config = YAML::LoadFile("../config.yaml");
+YAML::Node config = YAML::LoadFile("../../config/default.yaml");
 
 // DEVICE
 YAML::Node dev_params = config["DEVICE"];
@@ -232,7 +232,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // open file for writing rx samples
   ofstream outfile;
-  outfile.open("../" + save_loc, ofstream::binary);
+  outfile.open("../../" + save_loc, ofstream::binary);
   
   vector<complex<float>> sample_sum(num_rx_samps, 0);
  
@@ -318,7 +318,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp){
   cout << "INFO: get_max_num_samps: " << tx_stream->get_max_num_samps() << endl;
 
   // open file to stream from
-  ifstream infile("../" + chirp_loc, ifstream::binary);
+  ifstream infile("../../" + chirp_loc, ifstream::binary);
   
   if (! infile.is_open() ) {
     cout << endl << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;

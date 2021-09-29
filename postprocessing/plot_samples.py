@@ -6,7 +6,7 @@ from ruamel.yaml import YAML as ym
 
 # Initialize Constants
 yaml = ym()                         # Always use safe load if not dumping
-with open('config.yaml') as stream:
+with open('config/default.yaml') as stream:
    config = yaml.load(stream)
    rx_params = config["PLOT"]
    sample_rate = rx_params["sample_rate"]    # Hertz

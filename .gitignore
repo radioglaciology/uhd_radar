@@ -1,4 +1,5 @@
 build/
+sdr/build/
 *.bin
 .vscode/**/*
 data/**/*

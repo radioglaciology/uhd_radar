@@ -6,7 +6,8 @@ GENERATE:
     start_freq: 1e6                  # [Hz]
     end_freq: 20e6                   # [Hz]
     signal_time: 1e-5                # [s]
-    out_file: &ch_sent "chirp.bin"   # The name of the output binary file
+    out_file: &ch_sent "data/chirp.bin"   # The name of the output binary file
+    show_plot: False                 # Display a time-domain plot of the generated chirp
 
 # ----------------- TX/RX for USRP_B205mini-i --------------------- #
 DEVICE:
@@ -37,11 +38,11 @@ SEQUENCE:
     coherent_sums: &coh_sums 1000        # No. of chirps to coherently sum
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "rx_samps.bin"  # Save rx data here
+    save_loc: &save_loc "data/rx_samps.bin"  # Save rx data here
     
 # -------------------------- Plot Samples --------------------------- #
 PLOT:
-    rx_samps: "rx_samps.bin"       # Receive data to use
+    rx_samps: "data/rx_samps.bin"       # Receive data to use
     orig_chirp: *ch_sent           # Chirp associated with receive data
     sample_rate: *s_rate
     sig_speed: 3e8                 # Speed of signal through medium [m/s]

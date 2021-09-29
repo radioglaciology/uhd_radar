@@ -5,7 +5,7 @@ from ruamel.yaml import YAML as ym
 
 # Initialize constants
 yaml = ym(typ='safe')                  # Always use safe load if not dumping
-with open("config.yaml") as stream:
+with open("config/default.yaml") as stream:
     config = yaml.load(stream)
     gen_params = config["GENERATE"]
     sample_rate = gen_params["sample_rate"]
@@ -13,6 +13,7 @@ with open("config.yaml") as stream:
     end_freq = gen_params["end_freq"]
     signal_time = gen_params["signal_time"]
     filename = gen_params["out_file"]
+    show_plot = gen_params["show_plot"]
     n_samples = int(signal_time * sample_rate)
     
 print("--- Loaded constants from config.yaml ---")
@@ -28,11 +29,12 @@ chirp_complex = np.empty(shape=np.shape(chirp), dtype=np.csingle)
 for x in range(np.shape(chirp)[0]):
     chirp_complex[x] = np.csingle(complex(chirp[x], 0))
 
-plt.plot(samples, chirp_complex)
-plt.xlabel('Time (s)')
-plt.ylabel('Amplitude')
-plt.title('Linear Up Chirp')
-plt.show()
+if show_plot:
+    plt.plot(samples, chirp_complex)
+    plt.xlabel('Time (s)')
+    plt.ylabel('Amplitude')
+    plt.title('Linear Up Chirp')
+    plt.show()
 
 # Convert to file 
 print("--- Converting Chirp to File ---")
