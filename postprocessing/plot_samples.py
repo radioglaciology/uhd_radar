@@ -46,13 +46,13 @@ plt.plot(xcorr_time, xcorr_sig)
 plt.title("Output of Match Filter: Signal")
 plt.xlabel('Time (ms)')
 plt.ylabel('Power [dB]')
-plt.show()
 
 plt.figure()
 plt.plot(range(-10,30), xcorr_sig[dir_peak-10:dir_peak+30])
 plt.title("Output of Match Filter: Peaks")
 plt.xlabel('Sample')
 plt.ylabel('Power [dB]')
-plt.show()
 
 [echo_samp, echo_dist] = pr.findEcho(xcorr_sig, sample_rate, dir_peak, echo_start, sig_speed, True)
+
+plt.show()

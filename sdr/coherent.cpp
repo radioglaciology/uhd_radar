@@ -91,11 +91,13 @@ string chirp_loc(files["chirp_loc"].as<string>());
 string save_loc(files["save_loc"].as<string>());
 
 
-  // Calculated Parameters
-  double tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
-  size_t num_tx_samps = tx_rate*tx_duration; // Total samples to transmit per chirp
-  size_t num_rx_samps = rx_rate*tx_duration*3; // Total samples to recieve per chirp
+// Calculated Parameters
+double tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
+size_t num_tx_samps = tx_rate*tx_duration; // Total samples to transmit per chirp
+size_t num_rx_samps = rx_rate*tx_duration*3; // Total samples to recieve per chirp
 
+// Error casese [TODO]
+bool error_state = false;
 
 /*
  * UHD_SAFE_MAIN
@@ -235,6 +237,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   outfile.open("../../" + save_loc, ofstream::binary);
   
   vector<complex<float>> sample_sum(num_rx_samps, 0);
+
+
+  int error_count = 0;
  
   /*** RX LOOP AND SUM ***/
 
@@ -270,15 +275,22 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
     recieve_samples(rx_stream, num_rx_samps, sample_sum);
 
+    if (error_state) {
+      cout << "Error occured. Trying to reset." << endl;
+      error_count++;
+
+      //time_offset = time_offset + 2*pulse_rep_int;
+      error_state = false;
+    }
+
     cout << "Recieved chirp " << i << " [samples: " << num_rx_samps << "]" << endl;
-    
+  
 #ifndef AVERAGE_BEFORE_SAVE
     if (outfile.is_open())
         outfile.write((const char*)&sample_sum.front(),
             num_rx_samps*sizeof(complex<float>));
 #endif
 
-    
     recv_bar.wait();
   }
 
@@ -295,6 +307,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 #endif
 
   /*** WRAP UP ***/
+
+  cout << "Error count: " << error_count << endl;
   
   cout << "Done." << endl << endl;
 
@@ -395,7 +409,7 @@ void recieve_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
   for(size_t ch=0;ch<rx_stream->get_num_channels();ch++)
     buffs.push_back(&buff.front());
 
-  double timeout = 5; // delay before recieve + padding
+  double timeout = 5; //pulse_rep_int*2; // delay before recieve + padding
 
   size_t num_acc_samps = 0;
   while(num_acc_samps < num_rx_samps){
@@ -406,21 +420,25 @@ void recieve_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
 
     // errors
     if (md.error_code != rx_metadata_t::ERROR_CODE_NONE){
-      cout << num_acc_samps << endl;
-      throw std::runtime_error(str(boost::format(
-        "Receiver error %s") % md.strerror()));
+      cout << "WARNING: Receiver error: " << md.strerror() << endl;
+      // throw std::runtime_error(str(boost::format(
+      //   "Receiver error %s") % md.strerror()));
+      error_state = true;
+      return;
+    } else {
+      // add samples
+      for(int i=0;i<n_samps;i++){
+#ifdef AVERAGE_BEFORE_SAVE
+        res[num_acc_samps + i] += buff[i];
+#else
+        res[num_acc_samps + i] = buff[i];
+#endif
+      } // TODO
+
+      num_acc_samps += n_samps;
     }
     
-    // add samples
-    for(int i=0;i<n_samps;i++){
-#ifdef AVERAGE_BEFORE_SAVE
-      res[num_acc_samps + i] += buff[i];
-#else
-      res[num_acc_samps + i] = buff[i];
-#endif
-    } // TODO
-
-    num_acc_samps += n_samps;
+    
   }
 
   if (num_acc_samps < num_rx_samps) cerr << "Receive timeout before all "
