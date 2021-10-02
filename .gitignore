@@ -1,2 +1,15 @@
 build/
+sdr/build/
 *.bin
+.vscode/**/*
+data/**/*
+!data/README.md
+archive/
+
+# Python
+
+__pycache__/
+
+# Notebooks
+
+.ipynb_checkpoints

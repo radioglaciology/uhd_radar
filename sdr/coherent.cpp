@@ -12,8 +12,10 @@
 #include <csignal>
 #include <complex>
 
+#include "yaml-cpp/yaml.h"
+
 //#define USE_GPIO
-//#define AVERAGE_BEFORE_SAVE
+#define AVERAGE_BEFORE_SAVE
 
 using namespace std;
 using namespace uhd;
@@ -43,39 +45,52 @@ boost::barrier sent_bar(2);
 boost::barrier recv_bar(2);
 
   /*** CONFIGURATION PARAMETERS ***/
-  
-  // DEVICE
-  string device_args("serial=30EF570"); // device addr  "serial=30EF570"
-  string subdev("A:A");
-  string tx_ant("TX/RX");
-  string rx_ant("RX2");
-  string clk_ref("internal");
-  
-  // GPIO
-  string gpio = "FP0";
-  int num_bits = 8;
-  uint32_t gpio_mask = (1 << num_bits) - 1;
+// Access root Node
+YAML::Node config = YAML::LoadFile("../../config/default.yaml");
 
-  // RF
-  double rx_rate(56e6);  // RX Sample Rate [sps]
-  double tx_rate(56e6);  // TX Sample Rate [sps]
-  double freq(325e6);    // 435 MHz Center Frequency
-  double rx_gain(60);    // RX Gain [dB]
-  double tx_gain(80.8);    // TX Gain [dB] - 60.8 is -10 dBm output
-  double bw(56e6);       // TX/RX Bandwidth [Hz]
-  double clk_rate(56e6); // Clock rate [Hz]
+// DEVICE
+YAML::Node dev_params = config["DEVICE"];
+string device_args(dev_params["device_args"].as<string>());
+string subdev(dev_params["subdev"].as<string>());
+string tx_ant(dev_params["tx_ant"].as<string>());
+string rx_ant(dev_params["rx_ant"].as<string>());
+string clk_ref(dev_params["clk_ref"].as<string>());
 
-  // Chirp Parametres
-  double time_offset = 1;    // Time before first receieve [s]
-  double tx_duration = 12e-6; //(10e-6);  // Transmission duration [s]
-  double tr_on_lead = 1e-6;    // Time from GPIO output toggle on to TX [s]
-  double tr_off_trail = 10e-6; // Time from TX off to GPIO output off [s]
-  double pulse_rep_int = 40e-3;//1000e-3;//20e-3;    // Chirp period [s]
-  double tx_lead = 0e-6;       // Time between start of TX and RX [s]
-  
-  // Chirp Sequence Parameters
-  int coherent_sums = 1000; // Number of chirps
-  
+// GPIO
+YAML::Node gpio_params = config["GPIO"];
+string gpio(gpio_params["gpio"].as<string>());
+int num_bits(gpio_params["num_bits"].as<int>());
+uint32_t gpio_mask = (1 << num_bits) - 1;
+
+// RF
+YAML::Node rf = config["RF"];
+double rx_rate(rf["rx_rate"].as<double>());
+double tx_rate(rf["tx_rate"].as<double>());
+double freq(rf["freq"].as<double>());
+double rx_gain(rf["rx_gain"].as<double>());
+double tx_gain(rf["tx_gain"].as<double>());
+double bw(rf["bw"].as<double>());
+double clk_rate(rf["clk_rate"].as<double>());
+
+// CHIRP
+YAML::Node chirp = config["CHIRP"];
+double time_offset(chirp["time_offset"].as<double>());
+double tx_duration(chirp["tx_duration"].as<double>());
+double tr_on_lead(chirp["tr_on_lead"].as<double>());
+double tr_off_trail(chirp["tr_off_trail"].as<double>());
+double pulse_rep_int(chirp["pulse_rep_int"].as<double>());
+double tx_lead(chirp["tx_lead"].as<double>());
+
+//SEQUENCE
+YAML::Node sequence = config["SEQUENCE"];
+int coherent_sums(sequence["coherent_sums"].as<int>());
+
+// FILENAMES
+YAML::Node files = config["FILES"];
+string chirp_loc(files["chirp_loc"].as<string>());
+string save_loc(files["save_loc"].as<string>());
+
+
   // Calculated Parameters
   double tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
   size_t num_tx_samps = tx_rate*tx_duration; // Total samples to transmit per chirp
@@ -90,6 +105,20 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   
   signal(SIGINT, &sig_int_handler);
 
+  /*** SANITY CHECKS ***/
+  
+  if (tx_rate != rx_rate){
+    cout << "WARNING: TX sample rate does not match RX sample rate.\n";
+  }
+  if (config["GENERATE"]["sample_rate"].as<double>() != tx_rate){
+    cout << "WARNING: TX sample rate does not match sample rate of generated chirp.\n";
+  }
+  if (bw < (config["GENERATE"]["end_freq"].as<double>() - config["GENERATE"]["start_freq"].as<double>())){
+    cout << "WARNING: RX bandwidth is narrower than the chirp bandwidth.\n";
+  }
+  if (config["GENERATE"]["signal_time"].as<double>() > tx_duration){
+    cout << "WARNING: TX duration is shorter than chirp duration.\n";
+  }
   
   /*** SETUP USRP ***/
   
@@ -203,7 +232,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // open file for writing rx samples
   ofstream outfile;
-  outfile.open("../rx_samps.bin", ofstream::binary);
+  outfile.open("../../" + save_loc, ofstream::binary);
   
   vector<complex<float>> sample_sum(num_rx_samps, 0);
  
@@ -289,7 +318,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp){
   cout << "INFO: get_max_num_samps: " << tx_stream->get_max_num_samps() << endl;
 
   // open file to stream from
-  ifstream infile("../chirp.bin", ifstream::binary);
+  ifstream infile("../../" + chirp_loc, ifstream::binary);
   
   if (! infile.is_open() ) {
     cout << endl << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
