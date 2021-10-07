@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import scipy.signal as sp
 import processing as pr
@@ -44,15 +45,18 @@ for x in range (xcorr_samps):
 plt.figure()
 plt.plot(xcorr_time, xcorr_sig)
 plt.title("Output of Match Filter: Signal")
-plt.xlabel('Time (ms)')
+plt.xlabel('Time (us)')
 plt.ylabel('Power [dB]')
+plt.grid()
 
 plt.figure()
 plt.plot(range(-10,30), xcorr_sig[dir_peak-10:dir_peak+30])
 plt.title("Output of Match Filter: Peaks")
 plt.xlabel('Sample')
 plt.ylabel('Power [dB]')
+plt.grid()
 
 [echo_samp, echo_dist] = pr.findEcho(xcorr_sig, sample_rate, dir_peak, echo_start, sig_speed, True)
 
+sys.stdout.flush()
 plt.show()
