@@ -44,57 +44,49 @@ void sig_int_handler(int){stop_signal_called = true;}
 boost::barrier sent_bar(2);
 boost::barrier recv_bar(2);
 
-  /*** CONFIGURATION PARAMETERS ***/
-// Access root Node
-YAML::Node config = YAML::LoadFile("../../config/default.yaml");
+/*** CONFIGURATION PARAMETERS ***/
 
 // DEVICE
-YAML::Node dev_params = config["DEVICE"];
-string device_args(dev_params["device_args"].as<string>());
-string subdev(dev_params["subdev"].as<string>());
-string tx_ant(dev_params["tx_ant"].as<string>());
-string rx_ant(dev_params["rx_ant"].as<string>());
-string clk_ref(dev_params["clk_ref"].as<string>());
+string device_args;
+string subdev;
+string tx_ant;
+string rx_ant;
+string clk_ref;
 
 // GPIO
-YAML::Node gpio_params = config["GPIO"];
-string gpio(gpio_params["gpio"].as<string>());
-int num_bits(gpio_params["num_bits"].as<int>());
+string gpio;
+int num_bits;
 uint32_t gpio_mask = (1 << num_bits) - 1;
 
 // RF
-YAML::Node rf = config["RF"];
-double rx_rate(rf["rx_rate"].as<double>());
-double tx_rate(rf["tx_rate"].as<double>());
-double freq(rf["freq"].as<double>());
-double rx_gain(rf["rx_gain"].as<double>());
-double tx_gain(rf["tx_gain"].as<double>());
-double bw(rf["bw"].as<double>());
-double clk_rate(rf["clk_rate"].as<double>());
+double rx_rate;
+double tx_rate;
+double freq;
+double rx_gain;
+double tx_gain;
+double bw;
+double clk_rate;
 
 // CHIRP
-YAML::Node chirp = config["CHIRP"];
-double time_offset(chirp["time_offset"].as<double>());
-double tx_duration(chirp["tx_duration"].as<double>());
-double tr_on_lead(chirp["tr_on_lead"].as<double>());
-double tr_off_trail(chirp["tr_off_trail"].as<double>());
-double pulse_rep_int(chirp["pulse_rep_int"].as<double>());
-double tx_lead(chirp["tx_lead"].as<double>());
+double time_offset;
+double tx_duration;
+double tr_on_lead;
+double tr_off_trail;
+double pulse_rep_int;
+double tx_lead;
 
 //SEQUENCE
-YAML::Node sequence = config["SEQUENCE"];
-int coherent_sums(sequence["coherent_sums"].as<int>());
+int coherent_sums;
 
 // FILENAMES
-YAML::Node files = config["FILES"];
-string chirp_loc(files["chirp_loc"].as<string>());
-string save_loc(files["save_loc"].as<string>());
+string chirp_loc;
+string save_loc;
 
 
 // Calculated Parameters
-double tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
-size_t num_tx_samps = tx_rate*tx_duration; // Total samples to transmit per chirp
-size_t num_rx_samps = rx_rate*tx_duration*3; // Total samples to recieve per chirp
+double tr_off_delay; // Time before turning off GPIO
+size_t num_tx_samps; // Total samples to transmit per chirp
+size_t num_rx_samps; // Total samples to recieve per chirp
 
 // Error casese [TODO]
 bool error_state = false;
@@ -103,6 +95,63 @@ bool error_state = false;
  * UHD_SAFE_MAIN
  */
 int UHD_SAFE_MAIN(int argc, char *argv[]) {
+
+  /** Load YAML file **/
+
+  string yaml_filename;
+  if (argc >= 2) {
+    yaml_filename = "../../" + string(argv[1]);
+  } else {
+    yaml_filename = "../../config/default.yaml";
+  }
+  cout << "Reading from config file: " << yaml_filename << endl;
+
+  YAML::Node config = YAML::LoadFile(yaml_filename);
+
+  YAML::Node dev_params = config["DEVICE"];
+  subdev = dev_params["subdev"].as<string>();
+  tx_ant = dev_params["tx_ant"].as<string>();
+  rx_ant = dev_params["rx_ant"].as<string>();
+  clk_ref = dev_params["clk_ref"].as<string>();
+  device_args = dev_params["device_args"].as<string>();
+
+  YAML::Node gpio_params = config["GPIO"];
+  gpio = gpio_params["gpio"].as<string>();
+  num_bits = gpio_params["num_bits"].as<int>();
+  gpio_mask = (1 << num_bits) - 1;
+
+  YAML::Node rf = config["RF"];
+  rx_rate = rf["rx_rate"].as<double>();
+  tx_rate = rf["tx_rate"].as<double>();
+  freq = rf["freq"].as<double>();
+  rx_gain = rf["rx_gain"].as<double>();
+  tx_gain = rf["tx_gain"].as<double>();
+  bw = rf["bw"].as<double>();
+  clk_rate = rf["clk_rate"].as<double>();
+
+  YAML::Node chirp = config["CHIRP"];
+  time_offset = chirp["time_offset"].as<double>();
+  tx_duration = chirp["tx_duration"].as<double>();
+  tr_on_lead = chirp["tr_on_lead"].as<double>();
+  tr_off_trail = chirp["tr_off_trail"].as<double>();
+  pulse_rep_int = chirp["pulse_rep_int"].as<double>();
+  tx_lead = chirp["tx_lead"].as<double>();
+
+  YAML::Node sequence = config["SEQUENCE"];
+  coherent_sums = sequence["coherent_sums"].as<int>();
+
+  YAML::Node files = config["FILES"];
+  chirp_loc = files["chirp_loc"].as<string>();
+  save_loc = files["save_loc"].as<string>();
+
+  // Calculated parameters
+  tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
+  num_tx_samps = tx_rate*tx_duration; // Total samples to transmit per chirp
+  num_rx_samps = rx_rate*tx_duration*3; // Total samples to recieve per chirp
+
+
+  /** Thread, interrupt setup **/
+
   set_thread_priority_safe(1.0, true);
   
   signal(SIGINT, &sig_int_handler);
@@ -338,6 +387,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp){
     cout << endl << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
     cout << "ERROR! Faild to open chirp.bin input file" << endl;
     cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl << endl;
+    exit(1);
   }
   
   vector<complex<float>> tx_buff(num_tx_samps);

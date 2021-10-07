@@ -1,12 +1,20 @@
+import sys
+import argparse
 import numpy as np
-import scipy.signal as sp
+import scipy.signal
 import scipy.fft
 import matplotlib.pyplot as plt
-from ruamel.yaml import YAML as ym
+from ruamel.yaml import YAML
+
+# Check if a YAML file was provided as a command line argument
+parser = argparse.ArgumentParser()
+parser.add_argument("yaml_file", nargs='?', default='config/default.yaml',
+        help='Path to YAML configuration file')
+args = parser.parse_args()
 
 # Initialize constants
-yaml = ym(typ='safe')                  # Always use safe load if not dumping
-with open("config/default.yaml") as stream:
+yaml = YAML(typ='safe')
+with open(args.yaml_file) as stream:
     config = yaml.load(stream)
     gen_params = config["GENERATE"]
     chirp_type = gen_params["chirp_type"]
@@ -32,7 +40,8 @@ elif chirp_type == 'hyperbolic':
     ph = 2*np.pi*(-1*start_freq*end_freq*signal_time/(end_freq-start_freq))*np.log(1- (end_freq-start_freq)*ts/(end_freq*signal_time))
 else:
     ph = 2*np.pi*(start_freq*ts + (end_freq - start_freq) * ts**2 / (2*signal_time))
-    print(f"[WARNING] Unrecognized chirp type '{chirp_type}'")
+    print(f"[ERROR] Unrecognized chirp type '{chirp_type}'")
+    sys.exit(1)
 
 chirp_complex = np.exp(1j*ph)
 
@@ -42,13 +51,15 @@ if window == "blackman":
 elif window == "hamming":
     chirp_complex = chirp_complex * np.hamming(chirp_complex.size)
 elif window != "rectangular":
-    print(f"[WARNING] Unrecognized window function '{window}'")
+    print(f"[ERROR] Unrecognized window function '{window}'")
+    sys.exit(1)
 
 
 if show_plot:
 
     fig, axs = plt.subplots(2,1)
 
+    # Time domain plot
     axs[0].plot(ts*1e6, np.real(chirp_complex), label='I')
     axs[0].plot(ts*1e6, np.imag(chirp_complex), label='Q')
     axs[0].set_xlabel('Time [us]')
@@ -56,6 +67,7 @@ if show_plot:
     axs[0].set_title('Time Domain')
     axs[0].legend()
 
+    # Frequency domain plot
     freqs = scipy.fft.fftshift(scipy.fft.fftfreq(chirp_complex.size, d=1/sample_rate))
     ms = 20*np.log10(scipy.fft.fftshift(np.abs(scipy.fft.fft(chirp_complex))))
     axs[1].plot(freqs/1e6, ms)
@@ -82,7 +94,5 @@ recov_floats = np.fromfile(filename, dtype=np.float32, count=-1, sep='', offset=
 if np.array_equiv(recov_floats, chirp_floats):
     print("\tChirp successfully stored in %s" % filename)
 else:
-    print("\tChirp was not successfully stored in %s" % filename)
-
-
-
+    print("\t[ERROR] Chirp was not successfully stored in %s" % filename)
+    sys.exit(1)

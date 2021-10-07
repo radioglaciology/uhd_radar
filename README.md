@@ -38,6 +38,22 @@ Please check that the changes you made are what you expected before committing t
 
 It takes a few extra steps to tell Visual Studio Code that you're using the conda environment. For setup instructions, [see here](vscode.md).
 
+### Running the code
+
+In most cases, all the necessary parts of the workflow can be done together by running the `run_default.sh` script.
+
+Any arguments passed to the script will be passed along to each of the three component pieces (pre-processing, SDR code, and post-processing). In particular, all scripts accept a path to a configuration YAML. You can run an experiment defined by a particular YAML file like this:
+
+```
+./run_default.sh config/my_experiment.yaml
+```
+
+Another handy trick is saving the output to a file. You can do that like this:
+
+```
+./run_default.sh 2>&1 | tee log.txt
+```
+
 ## Adding features, git conventions
 
 The basic workflow for adding features in should be something like this:
