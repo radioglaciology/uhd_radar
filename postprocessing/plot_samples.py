@@ -1,12 +1,20 @@
+import sys
+import argparse
 import numpy as np
 import scipy.signal as sp
 import processing as pr
 import matplotlib.pyplot as plt
 from ruamel.yaml import YAML as ym
 
+# Check if a YAML file was provided as a command line argument
+parser = argparse.ArgumentParser()
+parser.add_argument("yaml_file", nargs='?', default='config/default.yaml',
+        help='Path to YAML configuration file')
+args = parser.parse_args()
+
 # Initialize Constants
 yaml = ym()                         # Always use safe load if not dumping
-with open('config/default.yaml') as stream:
+with open(args.yaml_file) as stream:
    config = yaml.load(stream)
    rx_params = config["PLOT"]
    sample_rate = rx_params["sample_rate"]    # Hertz
@@ -44,15 +52,18 @@ for x in range (xcorr_samps):
 plt.figure()
 plt.plot(xcorr_time, xcorr_sig)
 plt.title("Output of Match Filter: Signal")
-plt.xlabel('Time (ms)')
+plt.xlabel('Time (us)')
 plt.ylabel('Power [dB]')
-plt.show()
+plt.grid()
 
 plt.figure()
-plt.plot(range(-10,30), xcorr_sig[dir_peak-10:dir_peak+30])
+plt.plot(range(-10,60), xcorr_sig[dir_peak-10:dir_peak+60])
 plt.title("Output of Match Filter: Peaks")
 plt.xlabel('Sample')
 plt.ylabel('Power [dB]')
-plt.show()
+plt.grid()
 
 [echo_samp, echo_dist] = pr.findEcho(xcorr_sig, sample_rate, dir_peak, echo_start, sig_speed, True)
+
+sys.stdout.flush()
+plt.show()

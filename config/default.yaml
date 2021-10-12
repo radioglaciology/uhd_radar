@@ -3,9 +3,10 @@
 # ----------------------- Chirp generation ------------------------ #
 GENERATE:
     sample_rate: &s_rate 56e6        # Of the generated chirp [sps]
-    start_freq: 1e6                  # [Hz]
-    end_freq: 20e6                   # [Hz]
-    signal_time: 1e-5                # [s]
+    chirp_type: 'linear'             # Can be 'linear'
+    chirp_bandwidth: 56e6            # [Hz]
+    window: 'rectangular'            # Window function applied to the chirp
+    chirp_length: &chirp_len 100e-6    # [s]
     out_file: &ch_sent "data/chirp.bin"   # The name of the output binary file
     show_plot: False                 # Display a time-domain plot of the generated chirp
 
@@ -22,20 +23,20 @@ GPIO:
 RF:
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 325e6          # Center Frequency (for mixing)
-    rx_gain: 60          # 55 # RX Gain [dB]
-    tx_gain: 80.8        # TX Gain [dB] - 60.8 is -10 dBm output
+    freq: 420e6          # Center Frequency (for mixing)
+    rx_gain: 45          # RX Gain [dB]
+    tx_gain: 60.8        # TX Gain [dB] - 60.8 is -10 dBm output
     bw: 56e6             # TX/RW Bandwidth [Hz]
     clk_rate: 56e6       # Clock Rate [Hz]
 CHIRP:
     time_offset: 1       # Time before first receive [s]
-    tx_duration: 12e-6   # Transmission duration [s]
-    tr_on_lead: 1e-6     # Time from GPIO output toggle on to TX [s]
-    tr_off_trail: 10e-6  # Time from TX off to GPIO output off [s]
-    pulse_rep_int: 40e-3 # Chirp period [s]
+    tx_duration: *chirp_len # Transmission duration [s]
+    tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
+    tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
+    pulse_rep_int: 1000e-6 # Chirp period [s]
     tx_lead: 0e+0        # Time between start of TX and RX[s]
 SEQUENCE:
-    coherent_sums: &coh_sums 1000        # No. of chirps to coherently sum
+    coherent_sums: &coh_sums 100        # No. of chirps to coherently sum
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
     save_loc: &save_loc "data/rx_samps.bin"  # Save rx data here
