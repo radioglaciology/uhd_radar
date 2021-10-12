@@ -164,10 +164,10 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   if (config["GENERATE"]["sample_rate"].as<double>() != tx_rate){
     cout << "WARNING: TX sample rate does not match sample rate of generated chirp.\n";
   }
-  if (bw < (config["GENERATE"]["end_freq"].as<double>() - config["GENERATE"]["start_freq"].as<double>())){
+  if (bw < config["GENERATE"]["chirp_bandwidth"].as<double>()){
     cout << "WARNING: RX bandwidth is narrower than the chirp bandwidth.\n";
   }
-  if (config["GENERATE"]["signal_time"].as<double>() > tx_duration){
+  if (config["GENERATE"]["chirp_length"].as<double>() > tx_duration){
     cout << "WARNING: TX duration is shorter than chirp duration.\n";
   }
   

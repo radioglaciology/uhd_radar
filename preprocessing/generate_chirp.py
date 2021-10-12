@@ -19,27 +19,29 @@ with open(args.yaml_file) as stream:
     gen_params = config["GENERATE"]
     chirp_type = gen_params["chirp_type"]
     sample_rate = gen_params["sample_rate"]
-    start_freq = gen_params["start_freq"]
-    end_freq = gen_params["end_freq"]
+    chirp_bandwidth = gen_params["chirp_bandwidth"]
     window = gen_params["window"]
-    signal_time = gen_params["signal_time"]
+    chirp_length = gen_params["chirp_length"]
     filename = gen_params["out_file"]
     show_plot = gen_params["show_plot"]
-    n_samples = int(signal_time * sample_rate)
+    n_samples = int(chirp_length * sample_rate)
     
 print("--- Loaded constants from config.yaml ---")
 
 # Build chirp
 print("--- Building Chirp ---")
 
-ts = np.arange(0, signal_time, 1/(sample_rate))
+end_freq = chirp_bandwidth / 2 # Chirp goes from -BW/2 to BW/2
+start_freq = -1 * end_freq
+
+ts = np.arange(0, chirp_length, 1/(sample_rate))
 
 if chirp_type == 'linear':
-    ph = 2*np.pi*(start_freq*ts + (end_freq - start_freq) * ts**2 / (2*signal_time))
+    ph = 2*np.pi*(start_freq*ts + (end_freq - start_freq) * ts**2 / (2*chirp_length))
 elif chirp_type == 'hyperbolic':
-    ph = 2*np.pi*(-1*start_freq*end_freq*signal_time/(end_freq-start_freq))*np.log(1- (end_freq-start_freq)*ts/(end_freq*signal_time))
+    ph = 2*np.pi*(-1*start_freq*end_freq*chirp_length/(end_freq-start_freq))*np.log(1- (end_freq-start_freq)*ts/(end_freq*chirp_length))
 else:
-    ph = 2*np.pi*(start_freq*ts + (end_freq - start_freq) * ts**2 / (2*signal_time))
+    ph = 2*np.pi*(start_freq*ts + (end_freq - start_freq) * ts**2 / (2*chirp_length))
     print(f"[ERROR] Unrecognized chirp type '{chirp_type}'")
     sys.exit(1)
 
