@@ -100,3 +100,6 @@ If you get warnings like this:
 space required between adjacent '>' delimeters of nested template argument lists ('>>' is the right shift operator)
 ```
 check your `.vscode/c_cpp_properties.json` file and make sure that the C++ standard is set to at least 11: `"cppStandard": "c++11"`. 
+
+### Running on X310
+The `x310_startup.sh` script should be run once when first connecting to the X310. 
