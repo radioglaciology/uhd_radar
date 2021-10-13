@@ -74,7 +74,8 @@ The basic workflow for adding features in should be something like this:
 
 
 ## Miscellaneous Notes
-* If you get errors like this: 
+### Symbol Errors when Compiling 
+If you get errors like this: 
 ```
 dyld: lazy symbol binding failed: Symbol not found: __ZN5boost24scoped_static_mutex_lockC1ERNS_12static_mutexEb
   Referenced from: /opt/local/lib/libuhd.3.15.0.dylib
@@ -92,3 +93,10 @@ you should invalidate (clear/clean/delete) your `CMakeCache.txt` file (located i
 set(CMAKE_LIBRARY_PATH "/Users/abroome/opt/miniconda3/envs/srg_uhd_radar/lib")
 set(CMAKE_INCLUDE_PATH "/Users/abroome/opt/miniconda3/envs/srg_uhd_radar/include")
 ```
+
+### Right Shift Operator Warnings
+If you get warnings like this:
+```
+space required between adjacent '>' delimeters of nested template argument lists ('>>' is the right shift operator)
+```
+check your `.vscode/c_cpp_properties.json` file and make sure that the C++ standard is set to at least 11: `"cppStandard": "c++11"`. 
