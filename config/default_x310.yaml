@@ -1,19 +1,19 @@
-# This is a configuration file meant for the Ettus USRP B205mini-i
+# This is a configuration file meant for the Ettus X310 USRP
 
 # ----------------------- Chirp generation ------------------------ #
 GENERATE:
-    sample_rate: &s_rate 56e6        # Of the generated chirp, tx and rx sample rates [sps]
+    sample_rate: &s_rate 10e6        # Of the generated chirp, tx and rx sample rates [sps]
     chirp_type: 'linear'             # Can be 'linear'
-    chirp_bandwidth: 56e6            # [Hz]
+    chirp_bandwidth: 10e6            # [Hz]
     window: 'rectangular'            # Window function applied to the chirp
-    chirp_length: &chirp_len 100e-6    # [s]
+    chirp_length: &chirp_len 50e-6    # [s]
     out_file: &ch_sent "data/chirp.bin"   # The name of the output binary file
-    show_plot: False                 # Display a time-domain plot of the generated chirp
+    show_plot: True                 # Display a time-domain plot of the generated chirp
 
-# ----------------- TX/RX for USRP_B205mini-i --------------------- #
+# ----------------- TX/RX for X310 --------------------- #
 DEVICE:
-    device_args: ""   # device address
-    subdev: "A:A"
+    device_args: "addr=192.168.10.2"   # device address
+    subdev: "A:0 B:0"
     tx_ant: "TX/RX"
     rx_ant: "RX2"
     clk_ref: "internal"
@@ -23,11 +23,11 @@ GPIO:
 RF:
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 420e6          # Center Frequency (for mixing)
-    rx_gain: 45          # RX Gain [dB]
-    tx_gain: 60.8        # TX Gain [dB] - 60.8 is -10 dBm output
-    bw: 56e6             # TX/RW Bandwidth [Hz]
-    clk_rate: 56e6       # Clock Rate [Hz]
+    freq: 300e6          # Center Frequency (for mixing)
+    rx_gain: 10          # RX Gain [dB]
+    tx_gain: 20          # TX Gain [dB]
+    bw: 0                # TX/RW Bandwidth [Hz]
+    clk_rate: 200e6      # Clock Rate [Hz]
 CHIRP:
     time_offset: 1       # Time before first receive [s]
     tx_duration: *chirp_len # Transmission duration [s]
@@ -36,7 +36,7 @@ CHIRP:
     pulse_rep_int: 1000e-6 # Chirp period [s]
     tx_lead: 0e+0        # Time between start of TX and RX[s]
 SEQUENCE:
-    coherent_sums: &coh_sums 100        # No. of chirps to coherently sum
+    coherent_sums: &coh_sums 0        # No. of chirps to coherently sum
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
     save_loc: &save_loc "data/rx_samps.bin"  # Save rx data here
@@ -47,15 +47,15 @@ PLOT:
     orig_chirp: *ch_sent           # Chirp associated with receive data
     sample_rate: *s_rate
     sig_speed: 3e8                 # Speed of signal through medium [m/s]
-    direct_start: &dir_start 20    # Start search for direct path @ this sample
-    echo_start: 10                 # Start search for echo @ this # of samps. after direct path
+    direct_start: &dir_start 0    # Start search for direct path @ this sample
+    echo_start: 1                  # Start search for echo @ this # of samps. after direct path
 
 # --------------------------- Noise Test -----------------------------#
 NOISE:
     rx_samps: *save_loc         # Receive data to use
     orig_chirp: *ch_sent        # Chirp associated with receive data
     sample_rate: *s_rate
-    noise_std: 6                # Standard deviation for white noise generation
+    noise_std: 0.1                # Standard deviation for white noise generation
     coherent_sums: *coh_sums    # Number of sums to eliminate noise.
     direct_start: *dir_start    # Sample at which to start search for direct path
     show_graphs: False          # For debugging
