@@ -24,7 +24,7 @@ Then activate it like this:
 
 `conda activate myenvironmentname`
 
-And you're good to go. This install UHD and all the other necessary dependencies.
+And you're good to go. This installs UHD and all the other necessary dependencies.
 
 ### Adding a dependency
 
@@ -40,7 +40,7 @@ It takes a few extra steps to tell Visual Studio Code that you're using the cond
 
 ### Running the code
 
-In most cases, all the necessary parts of the workflow can be done together by running the `run_default.sh` script.
+In most cases, all the necessary parts of the workflow can be done together by running the `run_default.sh` script. To run this script, you need to create a directory within `sdr/` named `/build` (should be `sdr/build`).  
 
 Any arguments passed to the script will be passed along to each of the three component pieces (pre-processing, SDR code, and post-processing). In particular, all scripts accept a path to a configuration YAML. You can run an experiment defined by a particular YAML file like this:
 
@@ -71,3 +71,24 @@ The basic workflow for adding features in should be something like this:
 4. Commit again. Push your changes. (See #3.)
 
 5. Go to GitHub and you'll be prompted to create a [pull request](https://docs.github.com/en/github/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests). Pull requests are a GitHub feature that lets you and others preview what happens if you merge your branch into the `main` branch. You can send others a link so we can all review the changes you're propsoing, including making comments on them and discussing if there are any issues.
+
+
+## Miscellaneous Notes
+* If you get errors like this: 
+```
+dyld: lazy symbol binding failed: Symbol not found: __ZN5boost24scoped_static_mutex_lockC1ERNS_12static_mutexEb
+  Referenced from: /opt/local/lib/libuhd.3.15.0.dylib
+  Expected in: /opt/local/lib/libboost_regex-mt.dylib
+
+dyld: Symbol not found: __ZN5boost24scoped_static_mutex_lockC1ERNS_12static_mutexEb
+  Referenced from: /opt/local/lib/libuhd.3.15.0.dylib
+  Expected in: /opt/local/lib/libboost_regex-mt.dylib
+
+./run_default.sh: line 8: 60892 Abort trap: 6
+```
+you should invalidate (clear/clean/delete) your `CMakeCache.txt` file (located in your `build/` directory) and double check that in `CMakeLists.txt` you have the include and library paths set to your conda installation:
+
+```
+set(CMAKE_LIBRARY_PATH "/Users/abroome/opt/miniconda3/envs/srg_uhd_radar/lib")
+set(CMAKE_INCLUDE_PATH "/Users/abroome/opt/miniconda3/envs/srg_uhd_radar/include")
+```
