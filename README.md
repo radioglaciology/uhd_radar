@@ -103,3 +103,7 @@ check your `.vscode/c_cpp_properties.json` file and make sure that the C++ stand
 
 ### Running on X310
 The `x310_startup.sh` script should be run once when first connecting to the X310. 
+
+
+## Potentially Helpful Ettus/NI Application Notes
+* [Timed commands](https://kb.ettus.com/Synchronizing_USRP_Events_Using_Timed_Commands_in_UHD)

@@ -35,8 +35,8 @@ CHIRP:
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
     pulse_rep_int: 1000e-6 # Chirp period [s]
     tx_lead: 0e+0        # Time between start of TX and RX[s]
-SEQUENCE:
-    coherent_sums: &coh_sums 0        # No. of chirps to coherently sum
+    num_pulses: &num_pulses 1000        # No. of chirps to TX/RX
+    num_presums: &num_presums 0         # No. of chirps to (coherently) presum onboard
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
     save_loc: &save_loc "data/rx_samps.bin"  # Save rx data here

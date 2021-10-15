@@ -74,9 +74,8 @@ double tr_on_lead;
 double tr_off_trail;
 double pulse_rep_int;
 double tx_lead;
-
-//SEQUENCE
-int coherent_sums;
+int num_pulses;
+int num_presums;
 
 // FILENAMES
 string chirp_loc;
@@ -136,9 +135,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   tr_off_trail = chirp["tr_off_trail"].as<double>();
   pulse_rep_int = chirp["pulse_rep_int"].as<double>();
   tx_lead = chirp["tx_lead"].as<double>();
-
-  YAML::Node sequence = config["SEQUENCE"];
-  coherent_sums = sequence["coherent_sums"].as<int>();
+  num_pulses = chirp["num_pulses"].as<int>();
+  num_presums = chirp["num_presums"].as<int>();
 
   YAML::Node files = config["FILES"];
   chirp_loc = files["chirp_loc"].as<string>();
@@ -164,7 +162,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   if (config["GENERATE"]["sample_rate"].as<double>() != tx_rate){
     cout << "WARNING: TX sample rate does not match sample rate of generated chirp.\n";
   }
-  if (bw < config["GENERATE"]["chirp_bandwidth"].as<double>()){
+  if (bw < config["GENERATE"]["chirp_bandwidth"].as<double>() && bw != 0){
     cout << "WARNING: RX bandwidth is narrower than the chirp bandwidth.\n";
   }
   if (config["GENERATE"]["chirp_length"].as<double>() > tx_duration){
@@ -182,12 +180,18 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // Lock mboard clocks
   cout << boost::format("Lock mboard clocks: %f") % clk_ref << endl;
   usrp->set_clock_source(clk_ref);
+  usrp->set_time_source(clk_ref);
+
+  // set the USRP time, let chill for a little bit to lock
+  usrp->set_time_next_pps(uhd::time_spec_t(0.0));
+  this_thread::sleep_for((chrono::milliseconds(1000)));
 
   // always select the subdevice first, the channel mapping affects the
   // other settings
   cout << boost::format("subdev set to: %f") % subdev << endl;
+  usrp->set_tx_subdev_spec(subdev);
   usrp->set_rx_subdev_spec(subdev);
-  cout << boost::format("Using Device: %s") % usrp->get_pp_string()
+  cout << boost::format("TX/RX Device: %s") % usrp->get_pp_string()
     << endl;
 
   // set master clock rate
@@ -232,11 +236,13 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     % usrp->get_tx_gain() << endl << endl;
 
   // set the IF filter bandwidth
-  cout << boost::format("Setting RX Bandwidth: %f MHz...") 
-    % (bw / 1e6) << endl;
-  usrp->set_rx_bandwidth(bw);
-  cout << boost::format("Actual RX Bandwidth: %f MHz...") 
-    % (usrp->get_rx_bandwidth() / 1e6) << endl << endl;
+  if (bw != 0)
+  {
+    cout << boost::format("Setting RX Bandwidth: %f MHz...") % (bw / 1e6) << endl;
+    usrp->set_rx_bandwidth(bw);
+    cout << boost::format("Actual RX Bandwidth: %f MHz...") % (usrp->get_rx_bandwidth() / 1e6) << endl
+         << endl;
+  }
 
   // set the antenna
   cout << boost::format("Setting RX Antenna: %s") % rx_ant << endl;
@@ -252,8 +258,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   cout << "INFO: Number of RX samples: " << num_rx_samps << endl;
 
   // set device timestamp
-  cout << boost::format("Setting device timestamp to 0...") << endl;
-  usrp->set_time_now(time_spec_t(0.0));
+ // cout << boost::format("Setting device timestamp to 0...") << endl;
+ // usrp->set_time_now(time_spec_t(0.0));
 
   // stream arguments for both tx and rx
   stream_args_t stream_args("fc32", "sc16");
@@ -292,8 +298,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
  
   /*** RX LOOP AND SUM ***/
 
-  for(int i=0;i<coherent_sums;i++){ 
-  
+  for(int i = 0; i < num_pulses; i++) { 
+  // TODO: IMPLEMENT COHERENT PRESUM CODE
     sent_bar.wait();
   
     double rx_time = time_offset + (pulse_rep_int * i);
@@ -315,9 +321,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     stream_cmd_t stream_cmd(stream_cmd_t::STREAM_MODE_NUM_SAMPS_AND_DONE);
     stream_cmd.num_samps = num_rx_samps;
     stream_cmd.stream_now = false;
-    stream_cmd.time_spec = uhd::time_spec_t(rx_time);
+    stream_cmd.time_spec = time_spec_t(rx_time);
     
-    time_ms = (uhd::time_spec_t(rx_time).get_real_secs())*1000.0;
+    time_ms = (time_spec_t(rx_time).get_real_secs())*1000.0;
     cout << boost::format("Scheduling chirp %d RX for %0.3f ms\n") % i % time_ms;
     
     rx_stream->issue_stream_cmd(stream_cmd);
@@ -347,7 +353,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   cout << "Calculing mean and saving to file..." << endl;
   // Average
   for(int i=0;i<num_rx_samps;i++){
-    sample_sum[i] = sample_sum[i] / ((float) coherent_sums);
+    sample_sum[i] = sample_sum[i] / ((float) num_presums);
   }
 
   if (outfile.is_open())
@@ -393,7 +399,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp){
   vector<complex<float>> tx_buff(num_tx_samps);
   infile.read((char*)&tx_buff.front(), num_tx_samps*sizeof(complex<float>));
 
-  for(int i=0;i<coherent_sums;i++){ 
+  for(int i = 0; i < num_pulses; i++) { 
     if (stop_signal_called) break;
   
     double rx_time = time_offset + (pulse_rep_int * i);
@@ -406,7 +412,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp){
     // GPIO Schedule
     double tr_on_time = tx_time - tr_on_lead;
     
-    time_ms = (uhd::time_spec_t(tr_on_time).get_real_secs())*1000.0;
+    time_ms = (time_spec_t(tr_on_time).get_real_secs())*1000.0;
     cout << boost::format("Scheduling chirp %d GPIO ON for %0.3f ms\n") % i % time_ms;
     
     usrp->set_command_time(time_spec_t(tr_on_time));
@@ -414,10 +420,10 @@ void transmit_worker(usrp::multi_usrp::sptr usrp){
     usrp->clear_command_time();
 #endif
 
-    time_ms = (uhd::time_spec_t(tx_time).get_real_secs())*1000.0;
+    time_ms = (time_spec_t(tx_time).get_real_secs())*1000.0;
     cout << boost::format("Scheduling chirp %d TX for %0.3f ms\n") % i % time_ms;
 
-    transmit_samples(tx_stream, tx_buff, uhd::time_spec_t(tx_time),
+    transmit_samples(tx_stream, tx_buff, time_spec_t(tx_time),
         num_tx_samps);
 
     // Wait for the chirp to be recieved
