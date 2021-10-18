@@ -12,7 +12,7 @@ from ruamel.yaml import YAML as ym
 
 # Initialize constants
 yaml = ym(typ='safe')                 # Always use safe load if not dumping
-with open('config.yaml') as stream:
+with open("config/default.yaml") as stream:
     config = yaml.load(stream)
     noise_params = config["NOISE"]
     sample_rate = noise_params["sample_rate"]
