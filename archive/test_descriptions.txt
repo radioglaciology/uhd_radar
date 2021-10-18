@@ -1,5 +1,7 @@
 These are the modifications that I made for each of the radar tests.
 
+loopback.bin: A single loopback test.
+
 Test 1: 27m from roble, 55 rx gain, 325 freq, 1500 sums
      2: 27m from roble, 65 rx gain, 325 freq, 1500 sums (looks like there's cutoff)
      3: 27m from roble, 60 rx gain, 325 freq, 1500 sums
@@ -22,7 +24,7 @@ Test 14: 37m from roble, 55 rx gain, 325 freq, 1000 samples
      17: 37m from roble, 64 rx gain, 325 freq, 2000 samples
      18: 37m from roble, 63 rx gain, 325 freq, 2500 samples
    
-Test 19: 50m from roble, 65 rx gain, 325 freq, 2000 samples
+Test 19: 50m from roble, 65 rx gain, 325 freq, 2000 samples (note: this may have been 55m)
      20: 50m from roble, 63 rx gain, 325 freq, 2500 samples
      21: 50m from roble, 61 rx gain, 325 freq, 2500 samples
      22: 50m from roble, 64 rx gain, 325 freq, 2500 samples

@@ -30,8 +30,8 @@ for x in range(np.shape(chirp)[0]):
 
 plt.plot(samples, chirp_complex)
 plt.xlabel('Time (s)')
-plt.ylabel('Amplitude')
-plt.title('Linear Up Chirp')
+plt.ylabel('Amplitude [V]')
+plt.title('Transmitted Chirp')
 plt.show()
 
 # Convert to file 

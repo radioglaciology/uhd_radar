@@ -30,12 +30,12 @@ print("--- Loaded constants from config.yaml ---")
 print("--- Opening data and determining direct path peak for first signal---")
 rx_sig = pr.extractSig(rx_samps)
 n_rx_samps = int(np.shape(rx_sig)[0])
-if (show_graphs): pr.plotSignal(rx_sig, 'Loopback Test', sample_rate) 
+if (show_graphs): pr.plotChirpVsTime(rx_sig, 'Loopback Test', sample_rate) 
 
 # Read original chirp
 tx_sig = pr.extractSig(orig_chirp)
 n_tx_samps = int(np.shape(tx_sig)[0])
-if (show_graphs): pr.plotSignal(tx_sig, 'Original Chirp', sample_rate)
+if (show_graphs): pr.plotChirpVsTime(tx_sig, 'Original Chirp', sample_rate)
 
 # Read the first chirp in received data -- this is the "ideal" signal for SNR
 samps_per = int(n_rx_samps / coh_sums)
@@ -122,13 +122,13 @@ for sig in signals:
     count += 1
 
 print("\n--- Plotting total signal after %d coherent summations ---" % coh_sums)
-pr.plotChirpVsTime(avg_total, "Total after %d summations" % coh_sums, sample_rate)
+pr.plotChirpVsTime(avg_total, "Total After %d Averaged Summations" % coh_sums, sample_rate)
 
 print("--- Plotting match filter of total signal after %d coherent summations ---" % coh_sums)
 xcorr_total = np.abs(sp.correlate(avg_total, tx_sig, mode='valid', method='auto'))
 plt.figure()
 plt.plot(xcorr_noise_time, 20*np.log10(xcorr_total))        # xcorr_noise and xcorr_total are the same shape
-plt.title("Match-filter of %d coherent summations" % coh_sums)
+plt.title("Match-filter of Total After %d Averaged Summations" % coh_sums)
 plt.xlabel('Time (ms)')
 plt.ylabel('Power [dB]')
 plt.show()
@@ -137,8 +137,8 @@ print("--- Plotting SNR versus # Sums ---")
 plt.figure()
 plt.plot(np.add(1, range(coh_sums)), snrs)
 plt.xlabel("Number of sums")
-plt.ylabel("Calculated SNR")
-plt.title("Signal to Noise Ratio versus Number of Coherent Sums")
+plt.ylabel("SNR")
+plt.title("Signal to Noise Ratio vs. Number of Coherent Sums")
 plt.show()
 
 

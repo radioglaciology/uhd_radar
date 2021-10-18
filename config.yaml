@@ -34,7 +34,7 @@ CHIRP:
     pulse_rep_int: 40e-3 # Chirp period [s]
     tx_lead: 0e+0        # Time between start of TX and RX[s]
 SEQUENCE:
-    coherent_sums: &coh_sums 7500        # No. of chirps to coherently sum
+    coherent_sums: &coh_sums 1        # No. of chirps to coherently sum
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
     save_loc: &save_loc "rx_samps.bin"  # Save rx data here
@@ -59,4 +59,16 @@ NOISE:
     show_graphs: False          # For debugging
     describe: False             # For debugging
 
+#  --------------------------- Windowing Test ------------------------#
+WINDOW:
+    orig_chirp: *ch_sent        # Generated chirp
+    window_type: "Hann"         # Options: Check scipy.signal.windows. TODO: Implement this.
+    sample_rate: *s_rate
+    amp_one: 1                   # Simulation: amplitude of 1st chirp
+    amp_two: 0.2                   # Simulation: amplitude of 2nd chirp
+    delay: 0.2                  # Simulation: time delay between chirps [ms]
+    noise_std: 0.025                # Simulation: magnitude of thermal noise
+    loopback: "archive/loopback.bin" # Simulation: ideal loopback location
+    show_graphs: True           # For debugging
+    describe: True             # For debugging
 

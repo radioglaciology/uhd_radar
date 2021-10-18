@@ -11,6 +11,7 @@ with open('config.yaml') as stream:
    rx_params = config["PLOT"]
    sample_rate = rx_params["sample_rate"]    # Hertz
    rx_samps = rx_params["rx_samps"]          # Received data to analyze
+   rx_samps = "archive/loopback.bin"
    orig_ch = rx_params["orig_chirp"]         # Chirp associated with the received data
    direct_start = rx_params["direct_start"]
    echo_start = rx_params["echo_start"]
@@ -21,11 +22,11 @@ print("--- Loaded constants from config.yaml ---")
 # Read and plot RX/TX
 rx_sig = pr.extractSig(rx_samps)
 print("--- Plotting real samples read from %s ---" % rx_samps)
-pr.plotChirpVsTime(rx_sig, 'Received Samples', sample_rate)
+pr.plotSigVsTime(rx_sig, 'Received Samples', sample_rate)
 
 tx_sig = pr.extractSig(orig_ch)
 print("--- Plotting transmited chirp, stored in %s ---" % orig_ch)
-pr.plotChirpVsTime(tx_sig, 'Transmitted Chirp', sample_rate)
+pr.plotSigVsTime(tx_sig, 'Transmitted Chirp', sample_rate)
 
 # Correlate the two chirps to determine time difference
 print("--- Match filtering received chirp with transmitted chirp ---")
@@ -43,16 +44,16 @@ for x in range (xcorr_samps):
 
 plt.figure()
 plt.plot(xcorr_time, xcorr_sig)
-plt.title("Output of Match Filter: Signal")
+plt.title("Output of Match Filter")
 plt.xlabel('Time (ms)')
 plt.ylabel('Power [dB]')
 plt.show()
 
 plt.figure()
 plt.plot(range(-10,30), xcorr_sig[dir_peak-10:dir_peak+30])
-plt.title("Output of Match Filter: Peaks")
+plt.title("Output of Match Filter")
 plt.xlabel('Sample')
 plt.ylabel('Power [dB]')
 plt.show()
 
-[echo_samp, echo_dist] = pr.findEcho(xcorr_sig, sample_rate, dir_peak, echo_start, sig_speed, True)
+echo_samp = pr.findEcho(xcorr_sig, sample_rate, dir_peak, echo_start, sig_speed, True)
