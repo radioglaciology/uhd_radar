@@ -59,3 +59,16 @@ If you don't know the path to your conda environment, you can find it by typing 
 `echo $CONDA_PREFIX`
 
 The `conda.prefix` line should be all you need to change if you are switching between different conda environments. 
+
+## Specify a Build Directory
+To specify the source file location and build location for your cmake outputs, your `.vscode/settings.json` file would look something like this: 
+
+```json
+{
+    "cmake.sourceDirectory": "${workspaceFolder}/sdr",
+    "cmake.buildDirectory": "${workspaceFolder}/sdr/build",
+    "files.associations": {
+        "__threading_support": "cpp"
+    }
+}
+```
