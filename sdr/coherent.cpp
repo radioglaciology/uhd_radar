@@ -88,7 +88,7 @@ size_t num_tx_samps; // Total samples to transmit per chirp
 size_t num_rx_samps; // Total samples to recieve per chirp
 
 // Error case [TODO]
-bool error_state = false;
+bool error_state = true;
 
 /*
  * UHD_SAFE_MAIN
@@ -176,9 +176,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   cout << boost::format("Creating the usrp device with: %s...")
     % device_args << endl;
   usrp::multi_usrp::sptr usrp = uhd::usrp::multi_usrp::make(device_args);
-
+  cout << boost::format("TX/RX Device: %s") % usrp->get_pp_string() << endl;
+  
   // Lock mboard clocks
-  cout << boost::format("Lock mboard clocks: %f") % clk_ref << endl;
   usrp->set_clock_source(clk_ref);
   usrp->set_time_source(clk_ref);
 
@@ -188,18 +188,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // always select the subdevice first, the channel mapping affects the
   // other settings
-  cout << boost::format("subdev set to: %f") % subdev << endl;
   usrp->set_tx_subdev_spec(subdev);
   usrp->set_rx_subdev_spec(subdev);
-  cout << boost::format("TX/RX Device: %s") % usrp->get_pp_string()
-    << endl;
 
   // set master clock rate
-  cout << boost::format("Setting master clock rate: %f MHz...")
-    % (clk_rate / 1e6) << endl;
   usrp->set_master_clock_rate(clk_rate);
-  cout << boost::format("Actual master clock rate: %f MHz...")
-    % (usrp->get_master_clock_rate() / 1e6) << endl;
 
   // set sample rate
   cout << boost::format("Setting RX Rate: %f Msps...") % (rx_rate / 1e6) 
@@ -263,6 +256,14 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // stream arguments for both tx and rx
   stream_args_t stream_args("fc32", "sc16");
+
+  /** MORE SANITY CHECKING **/
+  cout << boost::format("Lock mboard clocks: %f") % clk_ref << endl;
+  cout << boost::format("subdev set to: %f") % subdev << endl;
+  cout << boost::format("Setting master clock rate: %f MHz...")
+    % (clk_rate / 1e6) << endl;
+  cout << boost::format("Actual master clock rate: %f MHz...")
+    % (usrp->get_master_clock_rate() / 1e6) << endl;
 
   /*** SETUP GPIO ***/
 #ifdef USE_GPIO

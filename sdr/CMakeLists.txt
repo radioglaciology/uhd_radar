@@ -8,8 +8,8 @@
 cmake_minimum_required(VERSION 3.5.1)
 project(INIT_USRP CXX)
 
-set(CMAKE_LIBRARY_PATH "/Users/abroome/opt/miniconda3/envs/srg_uhd_radar/lib")
-set(CMAKE_INCLUDE_PATH "/Users/abroome/opt/miniconda3/envs/srg_uhd_radar/include")
+set(CMAKE_LIBRARY_PATH "${CONDA_PREFIX}/lib")
+set(CMAKE_INCLUDE_PATH "${CONDA_PREFIX}/include")
 
 ### Configure Compiler ########################################################
 set(CMAKE_CXX_STANDARD 11)

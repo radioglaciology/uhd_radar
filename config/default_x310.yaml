@@ -56,7 +56,7 @@ NOISE:
     orig_chirp: *ch_sent        # Chirp associated with receive data
     sample_rate: *s_rate
     noise_std: 0.1                # Standard deviation for white noise generation
-    coherent_sums: *coh_sums    # Number of sums to eliminate noise.
+    #coherent_sums: *coh_sums    # Number of sums to eliminate noise.
     direct_start: *dir_start    # Sample at which to start search for direct path
     show_graphs: False          # For debugging
     describe: False             # For debugging

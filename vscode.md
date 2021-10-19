@@ -35,13 +35,27 @@ Copy the existing entry and create a new entry after it. Change the name to some
 
 Now the CMake extension will know to activate your conda environment before trying to build your project.
 
-Open command palette one more time and go to `C/C++: Edit Configurations (UI)` Find "include path" and add these two lines:
+Open command palette one more time and go to `C/C++: Edit Configurations (UI)`. This should open a file called `c_cpp_properties.json` in the `.vscode` folder. At the start of the file add an environment section with the path to your conda environement, like this: 
+```json
+{
+    "env": {
+        "conda.prefix": "/Users/abroome/opt/miniconda3/envs/srg_uhd_radar"
+    },
+    "configurations:" [
+      ...
+    ]
+}
+```
 
-    <path to your conda environment>/include
-    <path to your conda environment>/lib
+Then find "include path" in the configuration section and add these two lines:
+
+    ${env:conda.prefix}/include
+    ${env:conda.prefix}/lib
 
 Save it and you should be done.
 
 If you don't know the path to your conda environment, you can find it by typing this in a terminal (with your conda environment activated):
 
 `echo $CONDA_PREFIX`
+
+The `conda.prefix` line should be all you need to change if you are switching between different conda environments. 
