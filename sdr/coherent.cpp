@@ -89,7 +89,7 @@ size_t num_tx_samps; // Total samples to transmit per chirp
 size_t num_rx_samps; // Total samples to recieve per chirp
 
 // Error case [TODO]
-bool error_state = true;
+bool error_state = false;
 
 /*
  * UHD_SAFE_MAIN
@@ -145,8 +145,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // Calculated parameters
   tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
-  num_tx_samps = tx_rate*tx_duration; // Total samples to transmit per chirp
-  num_rx_samps = rx_rate*tx_duration*3; // Total samples to recieve per chirp
+  num_tx_samps = tx_rate * tx_duration; // Total samples to transmit per chirp
+  num_rx_samps = rx_rate * tx_duration * 3; // Total samples to recieve per chirp
 
 
   /** Thread, interrupt setup **/
@@ -195,58 +195,28 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // set master clock rate
   usrp->set_master_clock_rate(clk_rate);
 
-  // set sample rate
-  cout << boost::format("Setting RX Rate: %f Msps...") % (rx_rate / 1e6) 
-    << endl;
+  // set rx and tx sample rates
   usrp->set_rx_rate(rx_rate);
-
-  cout << boost::format("Setting TX Rate: %f Msps...") % (tx_rate / 1e6) 
-    << endl;
   usrp->set_tx_rate(tx_rate);
-  cout << boost::format("Actual RX Rate: %f Msps...") 
-    % (usrp->get_rx_rate() / 1e6) << endl;
-  cout << boost::format("Actual TX Rate: %f Msps...")
-    % (usrp->get_tx_rate() / 1e6) << endl << endl;
 
   // set freq
-  cout << boost::format("Setting TX+RX Freq: %f MHz...") 
-    % (freq / 1e6) << endl;
   uhd::tune_request_t tune_request(freq);
   usrp->set_rx_freq(tune_request);
   usrp->set_tx_freq(tune_request);
-  cout << boost::format("Actual RX Freq: %f MHz...") 
-    % (usrp->get_rx_freq() / 1e6) << endl;
-  cout << boost::format("Actual TX Freq: %f MHz...") 
-    % (usrp->get_tx_freq() / 1e6) << endl << endl;
 
   // set the rf gain
-  cout << boost::format("Setting RX Gain: %f dB...") % rx_gain << endl;
   usrp->set_rx_gain(rx_gain);
-  cout << boost::format("Actual RX Gain: %f dB...") 
-    % usrp->get_rx_gain() << endl << endl;
-  cout << boost::format("Setting TX Gain: %f dB...") % tx_gain << endl;
   usrp->set_tx_gain(tx_gain);
-  cout << boost::format("Actual TX Gain: %f dB...") 
-    % usrp->get_tx_gain() << endl << endl;
 
   // set the IF filter bandwidth
   if (bw != 0)
   {
-    cout << boost::format("Setting RX Bandwidth: %f MHz...") % (bw / 1e6) << endl;
     usrp->set_rx_bandwidth(bw);
-    cout << boost::format("Actual RX Bandwidth: %f MHz...") % (usrp->get_rx_bandwidth() / 1e6) << endl
-         << endl;
   }
 
   // set the antenna
-  cout << boost::format("Setting RX Antenna: %s") % rx_ant << endl;
   usrp->set_rx_antenna(rx_ant);
-  cout << boost::format("Actual RX Antenna: %s") 
-    % usrp->get_rx_antenna() << endl;
-  cout << boost::format("Setting TX Antenna: %s") % tx_ant << endl;
   usrp->set_tx_antenna(tx_ant);
-  cout << boost::format("Actual TX Antenna: %s") 
-    % usrp->get_tx_antenna() << endl << endl;
     
   cout << "INFO: Number of TX samples: " << num_tx_samps << endl;
   cout << "INFO: Number of RX samples: " << num_rx_samps << endl;
@@ -260,11 +230,19 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   /** MORE SANITY CHECKING **/
   cout << boost::format("Lock mboard clocks: %f") % clk_ref << endl;
-  cout << boost::format("subdev set to: %f") % subdev << endl;
-  cout << boost::format("Setting master clock rate: %f MHz...")
-    % (clk_rate / 1e6) << endl;
-  cout << boost::format("Actual master clock rate: %f MHz...")
-    % (usrp->get_master_clock_rate() / 1e6) << endl;
+  cout << boost::format("Subdev set to: %f") % subdev << endl;
+  cout << boost::format("Master clock rate: %f MHz...") % (usrp->get_master_clock_rate() / 1e6) << endl;
+  cout << boost::format("RX Rate: %f Msps...") % (usrp->get_rx_rate() / 1e6) << endl;
+  cout << boost::format("TX Rate: %f Msps...") % (usrp->get_tx_rate() / 1e6) << endl << endl;
+  cout << boost::format("RX Center Freq: %f MHz...") % (usrp->get_rx_freq() / 1e6) << endl;
+  cout << boost::format("TX Center Freq: %f MHz...") % (usrp->get_tx_freq() / 1e6) << endl << endl;
+  cout << boost::format("RX Gain: %f dB...") % usrp->get_rx_gain() << endl << endl;
+  cout << boost::format("TX Gain: %f dB...") % usrp->get_tx_gain() << endl << endl;
+  if (bw != 0) {
+    cout << boost::format("Analog RX Bandwidth: %f MHz...") % (usrp->get_rx_bandwidth() / 1e6) << endl << endl;
+  }
+  cout << boost::format("RX Antenna: %s") % usrp->get_rx_antenna() << endl;
+  cout << boost::format("Actual TX Antenna: %s") % usrp->get_tx_antenna() << endl << endl;
 
   /*** SETUP GPIO ***/
 #ifdef USE_GPIO
@@ -479,8 +457,7 @@ void recieve_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
     // errors
     if (md.error_code != rx_metadata_t::ERROR_CODE_NONE){
       cout << "WARNING: Receiver error: " << md.strerror() << endl;
-      // throw std::runtime_error(str(boost::format(
-      //   "Receiver error %s") % md.strerror()));
+      throw std::runtime_error(str(boost::format("Receiver error %s") % md.strerror()));
       error_state = true;
       return;
     } else {

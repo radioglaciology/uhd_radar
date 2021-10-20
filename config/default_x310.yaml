@@ -43,7 +43,7 @@ FILES:
     
 # -------------------------- Plot Samples --------------------------- #
 PLOT:
-    rx_samps: "data/rx_samps.bin"       # Receive data to use
+    rx_samps: *save_loc              # Receive data to use
     orig_chirp: *ch_sent           # Chirp associated with receive data
     sample_rate: *s_rate
     sig_speed: 3e8                 # Speed of signal through medium [m/s]
