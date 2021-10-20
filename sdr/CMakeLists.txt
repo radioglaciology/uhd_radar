@@ -8,8 +8,9 @@
 cmake_minimum_required(VERSION 3.5.1)
 project(INIT_USRP CXX)
 
-set(CMAKE_LIBRARY_PATH "/Users/abroome/opt/miniconda3/envs/uhd315/lib")
-set(CMAKE_INCLUDE_PATH "/Users/abroome/opt/miniconda3/envs/uhd315/include")
+message(STATUS "conda prefix: $ENV{CONDA_PREFIX}")
+set(CMAKE_LIBRARY_PATH "$ENV{CONDA_PREFIX}/lib")
+set(CMAKE_INCLUDE_PATH "$ENV{CONDA_PREFIX}/include")
 
 ### Configure Compiler ########################################################
 set(CMAKE_CXX_STANDARD 14)
