@@ -16,7 +16,7 @@
 #include "yaml-cpp/yaml.h"
 
 //#define USE_GPIO
-#define AVERAGE_BEFORE_SAVE
+//#define AVERAGE_BEFORE_SAVE
 
 using namespace std;
 using namespace uhd;
