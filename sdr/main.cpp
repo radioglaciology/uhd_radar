@@ -264,10 +264,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
          << endl;
     UHD_ASSERT_THROW(lo_locked.to_bool());
 
-    lo_locked = usrp->get_tx_sensor("lo_locked", 1);
+    // for device with multiple channels
+    /*lo_locked = usrp->get_tx_sensor("lo_locked", 1);
     cout << boost::format("Checking TX: %s ...") % lo_locked.to_pp_string()
          << endl;
-    UHD_ASSERT_THROW(lo_locked.to_bool());
+    UHD_ASSERT_THROW(lo_locked.to_bool());*/
   }
   rx_sensor_names = usrp->get_rx_sensor_names(0);
   if (find(rx_sensor_names.begin(), rx_sensor_names.end(), "lo_locked") != rx_sensor_names.end())
@@ -277,10 +278,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
          << endl;
     UHD_ASSERT_THROW(lo_locked.to_bool());
 
-    lo_locked = usrp->get_rx_sensor("lo_locked", 1);
+    // for device with multiple channels
+    /*lo_locked = usrp->get_rx_sensor("lo_locked", 1);
     cout << boost::format("Checking RX: %s ...") % lo_locked.to_pp_string()
          << endl;
-    UHD_ASSERT_THROW(lo_locked.to_bool());
+    UHD_ASSERT_THROW(lo_locked.to_bool());*/
   }
 
   tx_sensor_names = usrp->get_mboard_sensor_names(0);

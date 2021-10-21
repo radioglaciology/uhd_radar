@@ -35,15 +35,15 @@ CHIRP:
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
     pulse_rep_int: 1000e-6 # Chirp period [s]
     tx_lead: 0e+0        # Time between start of TX and RX[s]
-SEQUENCE:
-    coherent_sums: &coh_sums 100        # No. of chirps to coherently sum
+    num_pulses: &num_pulses 1000        # No. of chirps to TX/RX
+    num_presums: &num_presums 1         # No. of chirps to (coherently) presum onboard (must be at least 1)
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "data/rx_samps.bin"  # Save rx data here
+    save_loc: &save_loc "data/b205m_20211021_1055.bin"  # Save rx data here
     
 # -------------------------- Plot Samples --------------------------- #
 PLOT:
-    rx_samps: "data/rx_samps.bin"       # Receive data to use
+    rx_samps: *save_loc       # Receive data to use
     orig_chirp: *ch_sent           # Chirp associated with receive data
     sample_rate: *s_rate
     sig_speed: 3e8                 # Speed of signal through medium [m/s]
@@ -56,7 +56,7 @@ NOISE:
     orig_chirp: *ch_sent        # Chirp associated with receive data
     sample_rate: *s_rate
     noise_std: 6                # Standard deviation for white noise generation
-    coherent_sums: *coh_sums    # Number of sums to eliminate noise.
+    #coherent_sums: *coh_sums    # Number of sums to eliminate noise.
     direct_start: *dir_start    # Sample at which to start search for direct path
     show_graphs: False          # For debugging
     describe: False             # For debugging
