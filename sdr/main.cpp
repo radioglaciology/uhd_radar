@@ -30,7 +30,7 @@ void transmit_samples(tx_streamer::sptr& tx_stream,
   size_t num_tx_samps);
   
 void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
-    vector<complex<float>>& res, vector<complex<float>*> buff_ptrs);
+    vector<complex<float>>& res);
 
 /*
  * SIG INT HANDLER
@@ -330,24 +330,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   outfile.open("../../" + save_loc, ofstream::binary);
 
   // set up buffers for rx
-  /*vector<complex<float>> chirp_buff(num_rx_samps * 10);
-  //vector<void *> chirp_buff_ptr;
-  vector<complex<float>*> chirp_buff_ptr;
-  //for(size_t ch = 0; ch < rx_stream->get_num_channels(); ch++) {
-  chirp_buff_ptr.push_back(&chirp_buff.front());
-  //}*/
-
-      size_t samps_per_buff = num_rx_samps;
-    size_t num_rx_channels = 1;
-
-    // Prepare buffers for received samples and metadata
-    uhd::rx_metadata_t md;
-    std::vector<std::vector<complex<float>>> buffs(num_rx_channels, std::vector<complex<float>>(samps_per_buff));
-    // create a vector of pointers to point to each of the channel buffers
-    std::vector<complex<float>*> buff_ptrs;
-    for (size_t i = 0; i < buffs.size(); i++) {
-        buff_ptrs.push_back(&buffs[i].front());
-    }
+  uhd::rx_metadata_t md;
   
   vector<complex<float>> sample_sum(num_rx_samps, 0);
   vector<complex<float>> rx_sample(num_rx_samps, 0);
@@ -388,7 +371,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
       rx_stream->issue_stream_cmd(stream_cmd);
 
-      receive_samples(rx_stream, num_rx_samps, rx_sample, buff_ptrs);
+      receive_samples(rx_stream, num_rx_samps, rx_sample);
 
       if (error_state) {
         cout << "Error occured. Trying to reset." << endl;
@@ -520,7 +503,7 @@ void transmit_samples(tx_streamer::sptr& tx_stream,
  * RECEIVE_SAMPLES
  */
 void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
-    vector<complex<float>>& res, vector<complex<float>*> buff_ptrs){
+    vector<complex<float>>& res){
 
   // meta data holder
   rx_metadata_t md;
