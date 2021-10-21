@@ -16,7 +16,6 @@
 #include "yaml-cpp/yaml.h"
 
 //#define USE_GPIO
-//#define AVERAGE_BEFORE_SAVE
 
 using namespace std;
 using namespace uhd;
@@ -419,27 +418,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
     // clear the matrices holding the sums
     fill(sample_sum.begin(), sample_sum.end(), complex<float>(0,0));
-
-    /*#ifndef AVERAGE_BEFORE_SAVE
-    if (outfile.is_open())
-        outfile.write((const char*)&sample_sum.front(),
-            num_rx_samps*sizeof(complex<float>));
-#endif*/
-
-    //recv_bar.wait();
   }
-
-/*#ifdef AVERAGE_BEFORE_SAVE
-  cout << "Calculing mean and saving to file..." << endl;
-  // Average
-  for(int i=0;i<num_rx_samps;i++){
-    sample_sum[i] = sample_sum[i] / ((float) coherent_sums);
-  }
-
-  if (outfile.is_open())
-    outfile.write((const char*)&sample_sum.front(),
-        num_rx_samps*sizeof(complex<float>));
-#endif*/
 
 
   /*** WRAP UP ***/
@@ -569,18 +548,9 @@ void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
       error_state = true;
       return;
     } else {
-      for (int i = 0; i < n_samps; i++) {
+      for (int i = 0; i < n_samps; i++) { // TODO: this feels inefficient 
         res[num_acc_samps + i] = buff[i]; 
       }
-      // add samples
-      /*for(int i=0;i<n_samps;i++){
-#ifdef AVERAGE_BEFORE_SAVE
-        res[num_acc_samps + i] += buff[i];
-#else
-        res[num_acc_samps + i] = buff[i];
-#endif
-      }*/ // TODO
-
       num_acc_samps += n_samps;
     }
     
