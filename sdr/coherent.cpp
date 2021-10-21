@@ -30,8 +30,8 @@ void transmit_samples(tx_streamer::sptr& tx_stream,
   vector<complex<float>>& tx_buff, time_spec_t tx_time,
   size_t num_tx_samps);
   
-void recieve_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
-    vector<complex<float>>& res);
+void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
+    vector<complex<float>>& res, vector<complex<float>*> buff_ptrs);
 
 /*
  * SIG INT HANDLER
@@ -86,7 +86,7 @@ string save_loc;
 // Calculated Parameters
 double tr_off_delay; // Time before turning off GPIO
 size_t num_tx_samps; // Total samples to transmit per chirp
-size_t num_rx_samps; // Total samples to recieve per chirp
+size_t num_rx_samps; // Total samples to receive per chirp
 
 // Error case [TODO]
 bool error_state = false;
@@ -146,7 +146,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // Calculated parameters
   tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
   num_tx_samps = tx_rate * tx_duration; // Total samples to transmit per chirp
-  num_rx_samps = rx_rate * tx_duration * 3; // Total samples to recieve per chirp
+  num_rx_samps = rx_rate * tx_duration * 3; // Total samples to receive per chirp
 
 
   /** Thread, interrupt setup **/
@@ -199,10 +199,18 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   usrp->set_rx_rate(rx_rate);
   usrp->set_tx_rate(tx_rate);
 
-  // set freq
-  uhd::tune_request_t tune_request(freq);
+  // set center frequency at the same time for both daughterboards
+  usrp->clear_command_time();
+  // set command time for .1s in the future
+  usrp->set_command_time(usrp->get_time_now() + time_spec_t(0.1)); 
+
+  tune_request_t tune_request(freq);
   usrp->set_rx_freq(tune_request);
   usrp->set_tx_freq(tune_request);
+
+  // sleep 100ms (~10ms after retune occurs) to allow LO to lock
+  this_thread::sleep_for(chrono::milliseconds(110)); 
+  usrp->clear_command_time();
 
   // set the rf gain
   usrp->set_rx_gain(rx_gain);
@@ -217,9 +225,12 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // set the antenna
   usrp->set_rx_antenna(rx_ant);
   usrp->set_tx_antenna(tx_ant);
+
+  // allow for some setup time
+  this_thread::sleep_for(chrono::seconds(1));
     
   cout << "INFO: Number of TX samples: " << num_tx_samps << endl;
-  cout << "INFO: Number of RX samples: " << num_rx_samps << endl;
+  cout << "INFO: Number of RX samples: " << num_rx_samps << endl << endl;
 
   // set device timestamp
  // cout << boost::format("Setting device timestamp to 0...") << endl;
@@ -233,16 +244,64 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   cout << boost::format("Subdev set to: %f") % subdev << endl;
   cout << boost::format("Master clock rate: %f MHz...") % (usrp->get_master_clock_rate() / 1e6) << endl;
   cout << boost::format("RX Rate: %f Msps...") % (usrp->get_rx_rate() / 1e6) << endl;
-  cout << boost::format("TX Rate: %f Msps...") % (usrp->get_tx_rate() / 1e6) << endl << endl;
+  cout << boost::format("TX Rate: %f Msps...") % (usrp->get_tx_rate() / 1e6) << endl;
   cout << boost::format("RX Center Freq: %f MHz...") % (usrp->get_rx_freq() / 1e6) << endl;
-  cout << boost::format("TX Center Freq: %f MHz...") % (usrp->get_tx_freq() / 1e6) << endl << endl;
-  cout << boost::format("RX Gain: %f dB...") % usrp->get_rx_gain() << endl << endl;
-  cout << boost::format("TX Gain: %f dB...") % usrp->get_tx_gain() << endl << endl;
+  cout << boost::format("TX Center Freq: %f MHz...") % (usrp->get_tx_freq() / 1e6) << endl;
+  cout << boost::format("RX Gain: %f dB...") % usrp->get_rx_gain() << endl;
+  cout << boost::format("TX Gain: %f dB...") % usrp->get_tx_gain() << endl;
   if (bw != 0) {
-    cout << boost::format("Analog RX Bandwidth: %f MHz...") % (usrp->get_rx_bandwidth() / 1e6) << endl << endl;
+    cout << boost::format("Analog RX Bandwidth: %f MHz...") % (usrp->get_rx_bandwidth() / 1e6) << endl;
   }
   cout << boost::format("RX Antenna: %s") % usrp->get_rx_antenna() << endl;
-  cout << boost::format("Actual TX Antenna: %s") % usrp->get_tx_antenna() << endl << endl;
+  cout << boost::format("TX Antenna: %s") % usrp->get_tx_antenna() << endl << endl;
+
+  // Check Ref and LO Lock detect
+  vector<std::string> tx_sensor_names, rx_sensor_names;
+  tx_sensor_names = usrp->get_tx_sensor_names(0);
+  if (find(tx_sensor_names.begin(), tx_sensor_names.end(), "lo_locked") != tx_sensor_names.end())
+  {
+    sensor_value_t lo_locked = usrp->get_tx_sensor("lo_locked", 0);
+    cout << boost::format("Checking TX: %s ...") % lo_locked.to_pp_string()
+         << endl;
+    UHD_ASSERT_THROW(lo_locked.to_bool());
+
+    lo_locked = usrp->get_tx_sensor("lo_locked", 1);
+    cout << boost::format("Checking TX: %s ...") % lo_locked.to_pp_string()
+         << endl;
+    UHD_ASSERT_THROW(lo_locked.to_bool());
+  }
+  rx_sensor_names = usrp->get_rx_sensor_names(0);
+  if (find(rx_sensor_names.begin(), rx_sensor_names.end(), "lo_locked") != rx_sensor_names.end())
+  {
+    sensor_value_t lo_locked = usrp->get_rx_sensor("lo_locked", 0);
+    cout << boost::format("Checking RX: %s ...") % lo_locked.to_pp_string()
+         << endl;
+    UHD_ASSERT_THROW(lo_locked.to_bool());
+
+    lo_locked = usrp->get_rx_sensor("lo_locked", 1);
+    cout << boost::format("Checking RX: %s ...") % lo_locked.to_pp_string()
+         << endl;
+    UHD_ASSERT_THROW(lo_locked.to_bool());
+  }
+
+  tx_sensor_names = usrp->get_mboard_sensor_names(0);
+  if ((clk_ref == "mimo") and (find(tx_sensor_names.begin(), tx_sensor_names.end(), "mimo_locked") != tx_sensor_names.end()))
+  {
+    sensor_value_t mimo_locked = usrp->get_mboard_sensor("mimo_locked", 0);
+    cout << boost::format("Checking TX: %s ...") % mimo_locked.to_pp_string()
+         << endl;
+    UHD_ASSERT_THROW(mimo_locked.to_bool());
+  }
+  if ((clk_ref == "external") and (find(tx_sensor_names.begin(), tx_sensor_names.end(), "ref_locked") != tx_sensor_names.end()))
+  {
+    sensor_value_t ref_locked = usrp->get_mboard_sensor("ref_locked", 0);
+    cout << boost::format("Checking TX: %s ...") % ref_locked.to_pp_string()
+         << endl;
+    UHD_ASSERT_THROW(ref_locked.to_bool());
+  }
+
+  // update the offset time for start of streaming to be offset from the current usrp time
+  time_offset = time_offset + time_spec_t(usrp->get_time_now()).get_real_secs();
 
   /*** SETUP GPIO ***/
 #ifdef USE_GPIO
@@ -270,78 +329,122 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // open file for writing rx samples
   ofstream outfile;
   outfile.open("../../" + save_loc, ofstream::binary);
+
+  // set up buffers for rx
+  /*vector<complex<float>> chirp_buff(num_rx_samps * 10);
+  //vector<void *> chirp_buff_ptr;
+  vector<complex<float>*> chirp_buff_ptr;
+  //for(size_t ch = 0; ch < rx_stream->get_num_channels(); ch++) {
+  chirp_buff_ptr.push_back(&chirp_buff.front());
+  //}*/
+
+      size_t samps_per_buff = num_rx_samps;
+    size_t num_rx_channels = 1;
+
+    // Prepare buffers for received samples and metadata
+    uhd::rx_metadata_t md;
+    std::vector<std::vector<complex<float>>> buffs(num_rx_channels, std::vector<complex<float>>(samps_per_buff));
+    // create a vector of pointers to point to each of the channel buffers
+    std::vector<complex<float>*> buff_ptrs;
+    for (size_t i = 0; i < buffs.size(); i++) {
+        buff_ptrs.push_back(&buffs[i].front());
+    }
   
   vector<complex<float>> sample_sum(num_rx_samps, 0);
+  vector<complex<float>> rx_sample(num_rx_samps, 0);
 
 
   int error_count = 0;
- 
+
   /*** RX LOOP AND SUM ***/
 
-  for(int i = 0; i < num_pulses; i++) { 
-  // TODO: IMPLEMENT COHERENT PRESUM CODE
-    sent_bar.wait();
-  
-    double rx_time = time_offset + (pulse_rep_int * i);
-    double tx_time = rx_time - tx_lead;
-    double time_ms;
+  for (int i = 0; i < num_pulses; i += num_presums) {
+    for (int m = 0; m < num_presums; m++) {
+
+      sent_bar.wait();
+
+      double rx_time = time_offset + (pulse_rep_int * (i + m));
+      double tx_time = rx_time - tx_lead;
+      double time_ms;
 
 #ifdef USE_GPIO
-    // Schedule GPIO off
-    double tr_off_time = tx_time + tr_off_delay;
-    
-    time_ms = (uhd::time_spec_t(tr_off_time).get_real_secs())*1000.0;
-    cout << boost::format("Scheduling chirp %d GPIO OFF for %0.3f ms\n") % i % time_ms;
-    
-    usrp->set_command_time(time_spec_t(tr_off_time));
-    usrp->set_gpio_attr(gpio, "OUT", 0x00, gpio_mask);
-    usrp->clear_command_time();
+      // Schedule GPIO off
+      double tr_off_time = tx_time + tr_off_delay;
+
+      time_ms = (uhd::time_spec_t(tr_off_time).get_real_secs()) * 1000.0;
+      cout << boost::format("Scheduling chirp %d GPIO OFF for %0.3f ms\n") % i % time_ms;
+
+      usrp->set_command_time(time_spec_t(tr_off_time));
+      usrp->set_gpio_attr(gpio, "OUT", 0x00, gpio_mask);
+      usrp->clear_command_time();
 #endif
 
-    stream_cmd_t stream_cmd(stream_cmd_t::STREAM_MODE_NUM_SAMPS_AND_DONE);
-    stream_cmd.num_samps = num_rx_samps;
-    stream_cmd.stream_now = false;
-    stream_cmd.time_spec = time_spec_t(rx_time);
-    
-    time_ms = (time_spec_t(rx_time).get_real_secs())*1000.0;
-    cout << boost::format("Scheduling chirp %d RX for %0.3f ms\n") % i % time_ms;
-    
-    rx_stream->issue_stream_cmd(stream_cmd);
+      stream_cmd_t stream_cmd(stream_cmd_t::STREAM_MODE_NUM_SAMPS_AND_DONE);
+      stream_cmd.num_samps = num_rx_samps;
+      stream_cmd.stream_now = false;
+      stream_cmd.time_spec = time_spec_t(rx_time);
 
-    recieve_samples(rx_stream, num_rx_samps, sample_sum);
+      time_ms = time_spec_t(rx_time).get_real_secs() * 1000.0;
+      cout << boost::format("Scheduling chirp %d RX for %0.3f ms\n") % (i + m) % time_ms;
 
-    if (error_state) {
-      cout << "Error occured. Trying to reset." << endl;
-      error_count++;
+      rx_stream->issue_stream_cmd(stream_cmd);
 
-      //time_offset = time_offset + 2*pulse_rep_int;
-      error_state = false;
+      receive_samples(rx_stream, num_rx_samps, rx_sample, buff_ptrs);
+
+      if (error_state) {
+        cout << "Error occured. Trying to reset." << endl;
+        error_count++;
+
+        //time_offset = time_offset + 2*pulse_rep_int;
+        error_state = false;
+      }
+
+      cout << "Received chirp " << i << " [samples: " << num_rx_samps << "]" << endl;
+
+      for (int n = 0; n < num_rx_samps; n++) {
+        sample_sum[n] += rx_sample[n];
+      }
+
+      recv_bar.wait();
+    } // then take average of coherently summed samples
+    /*for (int n = 0; n < num_rx_samps; n++) {
+      sample_sum[n] = sample_sum[n] / ((float)num_presums);
+    }*/
+
+    // write summed data to file
+    if (outfile.is_open()) {
+      outfile.write((const char*)&sample_sum.front(), 
+        num_rx_samps * sizeof(complex<float>));
     }
 
-    cout << "Recieved chirp " << i << " [samples: " << num_rx_samps << "]" << endl;
-  
-#ifndef AVERAGE_BEFORE_SAVE
+    // clear the matrices holding the sums
+    fill(sample_sum.begin(), sample_sum.end(), complex<float>(0,0));
+
+    /*#ifndef AVERAGE_BEFORE_SAVE
     if (outfile.is_open())
         outfile.write((const char*)&sample_sum.front(),
             num_rx_samps*sizeof(complex<float>));
-#endif
+#endif*/
 
-    recv_bar.wait();
+    //recv_bar.wait();
   }
 
-#ifdef AVERAGE_BEFORE_SAVE
+/*#ifdef AVERAGE_BEFORE_SAVE
   cout << "Calculing mean and saving to file..." << endl;
   // Average
   for(int i=0;i<num_rx_samps;i++){
-    sample_sum[i] = sample_sum[i] / ((float) num_presums);
+    sample_sum[i] = sample_sum[i] / ((float) coherent_sums);
   }
 
   if (outfile.is_open())
     outfile.write((const char*)&sample_sum.front(),
         num_rx_samps*sizeof(complex<float>));
-#endif
+#endif*/
+
 
   /*** WRAP UP ***/
+
+  outfile.close();
 
   cout << "Error count: " << error_count << endl;
   
@@ -354,7 +457,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 /*
  * TRANSMIT_WORKER
  */
-void transmit_worker(usrp::multi_usrp::sptr usrp){
+void transmit_worker(usrp::multi_usrp::sptr usrp)
+{
 
   /*** TX SETUP ***/
 
@@ -363,50 +467,53 @@ void transmit_worker(usrp::multi_usrp::sptr usrp){
 
   // tx streamer
   tx_streamer::sptr tx_stream = usrp->get_tx_stream(stream_args);
-  
+
   cout << "INFO: get_max_num_samps: " << tx_stream->get_max_num_samps() << endl;
 
   // open file to stream from
   ifstream infile("../../" + chirp_loc, ifstream::binary);
-  
-  if (! infile.is_open() ) {
-    cout << endl << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
+
+  if (!infile.is_open())
+  {
+    cout << endl
+         << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
     cout << "ERROR! Faild to open chirp.bin input file" << endl;
-    cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl << endl;
+    cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl
+         << endl;
     exit(1);
   }
-  
-  vector<complex<float>> tx_buff(num_tx_samps);
-  infile.read((char*)&tx_buff.front(), num_tx_samps*sizeof(complex<float>));
 
-  for(int i = 0; i < num_pulses; i++) { 
-    if (stop_signal_called) break;
-  
+  vector<complex<float>> tx_buff(num_tx_samps);
+  infile.read((char *)&tx_buff.front(), num_tx_samps * sizeof(complex<float>));
+
+  for (int i = 0; i < num_pulses; i++)
+  {
+    if (stop_signal_called)
+      break;
+
     double rx_time = time_offset + (pulse_rep_int * i);
     double tx_time = rx_time - tx_lead;
     double time_ms;
-    
-    
 
 #ifdef USE_GPIO
     // GPIO Schedule
     double tr_on_time = tx_time - tr_on_lead;
-    
-    time_ms = (time_spec_t(tr_on_time).get_real_secs())*1000.0;
+
+    time_ms = (time_spec_t(tr_on_time).get_real_secs()) * 1000.0;
     cout << boost::format("Scheduling chirp %d GPIO ON for %0.3f ms\n") % i % time_ms;
-    
+
     usrp->set_command_time(time_spec_t(tr_on_time));
     usrp->set_gpio_attr(gpio, "OUT", 0x01, gpio_mask);
     usrp->clear_command_time();
 #endif
 
-    time_ms = (time_spec_t(tx_time).get_real_secs())*1000.0;
+    time_ms = (time_spec_t(tx_time).get_real_secs()) * 1000.0;
     cout << boost::format("Scheduling chirp %d TX for %0.3f ms\n") % i % time_ms;
 
     transmit_samples(tx_stream, tx_buff, time_spec_t(tx_time),
         num_tx_samps);
 
-    // Wait for the chirp to be recieved
+    // Wait for the chirp to be received
     sent_bar.wait();
     recv_bar.wait();
   }
@@ -431,21 +538,21 @@ void transmit_samples(tx_streamer::sptr& tx_stream,
 }
 
 /*
- * RECIEVE_SAMPLES
+ * RECEIVE_SAMPLES
  */
-void recieve_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
-    vector<complex<float>>& res){
+void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
+    vector<complex<float>>& res, vector<complex<float>*> buff_ptrs){
 
   // meta data holder
   rx_metadata_t md;
 
-  // recieve buffer
+  // receive buffer
   vector<complex<float>> buff(rx_stream->get_max_num_samps());
   vector<void *> buffs;
   for(size_t ch=0;ch<rx_stream->get_num_channels();ch++)
     buffs.push_back(&buff.front());
 
-  double timeout = 5; //pulse_rep_int*2; // delay before recieve + padding
+  double timeout = 5; //pulse_rep_int*2; // delay before receive + padding
 
   size_t num_acc_samps = 0;
   while(num_acc_samps < num_rx_samps){
@@ -457,18 +564,22 @@ void recieve_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
     // errors
     if (md.error_code != rx_metadata_t::ERROR_CODE_NONE){
       cout << "WARNING: Receiver error: " << md.strerror() << endl;
-      throw std::runtime_error(str(boost::format("Receiver error %s") % md.strerror()));
+      // throw std::runtime_error(str(boost::format(
+      //   "Receiver error %s") % md.strerror()));
       error_state = true;
       return;
     } else {
+      for (int i = 0; i < n_samps; i++) {
+        res[num_acc_samps + i] = buff[i]; 
+      }
       // add samples
-      for(int i=0;i<n_samps;i++){
+      /*for(int i=0;i<n_samps;i++){
 #ifdef AVERAGE_BEFORE_SAVE
         res[num_acc_samps + i] += buff[i];
 #else
         res[num_acc_samps + i] = buff[i];
 #endif
-      } // TODO
+      }*/ // TODO
 
       num_acc_samps += n_samps;
     }
