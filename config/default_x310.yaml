@@ -39,7 +39,7 @@ CHIRP:
     num_presums: &num_presums 10         # No. of chirps to (coherently) presum onboard (must be at least 1)
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "data/20211021_1009.dat"  # Save rx data here
+    save_loc: &save_loc "data/20211021_1024.dat"  # Save rx data here
     
 # -------------------------- Plot Samples --------------------------- #
 PLOT:

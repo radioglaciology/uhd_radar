@@ -53,7 +53,7 @@ include_directories(
 link_directories(${Boost_LIBRARY_DIRS})
 
 ### Make the executable #######################################################
-add_executable(radar coherent.cpp)
+add_executable(radar main.cpp)
 
 set(CMAKE_BUILD_TYPE "Release")
 
