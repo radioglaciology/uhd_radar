@@ -33,13 +33,13 @@ CHIRP:
     tx_duration: *chirp_len # Transmission duration [s]
     tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
-    pulse_rep_int: 1000e-6 # Chirp period [s]
+    pulse_rep_int: 5000e-6 # Chirp period [s]
     tx_lead: 0e+0        # Time between start of TX and RX[s]
     num_pulses: &num_pulses 1000        # No. of chirps to TX/RX
-    num_presums: &num_presums 1         # No. of chirps to (coherently) presum onboard (must be at least 1)
+    num_presums: &num_presums 10         # No. of chirps to (coherently) presum onboard (must be at least 1)
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "data/b205m_20211021_1055.bin"  # Save rx data here
+    save_loc: &save_loc "data/b205m_20211021_1105.bin"  # Save rx data here
     
 # -------------------------- Plot Samples --------------------------- #
 PLOT:

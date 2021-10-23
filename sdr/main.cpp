@@ -7,6 +7,7 @@
 #include <boost/format.hpp>
 #include <boost/thread.hpp>
 #include <boost/thread/barrier.hpp>
+#include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <fstream>
 #include <csignal>
@@ -14,6 +15,8 @@
 #include <thread>
 
 #include "yaml-cpp/yaml.h"
+
+#include "rf_settings.hpp"
 
 //#define USE_GPIO
 
@@ -49,23 +52,25 @@ boost::barrier recv_bar(2);
 // DEVICE
 string device_args;
 string subdev;
-string tx_ant;
-string rx_ant;
 string clk_ref;
+double clk_rate;
+string tx_channels; 
+string rx_channels;
 
 // GPIO
 string gpio;
 int num_bits;
 uint32_t gpio_mask = (1 << num_bits) - 1;
 
-// RF
+// RF1
 double rx_rate;
 double tx_rate;
 double freq;
 double rx_gain;
 double tx_gain;
 double bw;
-double clk_rate;
+string tx_ant;
+string rx_ant;
 
 // CHIRP
 double time_offset;
@@ -109,24 +114,27 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   YAML::Node dev_params = config["DEVICE"];
   subdev = dev_params["subdev"].as<string>();
-  tx_ant = dev_params["tx_ant"].as<string>();
-  rx_ant = dev_params["rx_ant"].as<string>();
   clk_ref = dev_params["clk_ref"].as<string>();
   device_args = dev_params["device_args"].as<string>();
+  clk_rate = dev_params["clk_rate"].as<double>();
+  tx_channels = dev_params["tx_channels"].as<string>();
+  rx_channels = dev_params["rx_channels"].as<string>();
 
   YAML::Node gpio_params = config["GPIO"];
   gpio = gpio_params["gpio"].as<string>();
   num_bits = gpio_params["num_bits"].as<int>();
   gpio_mask = (1 << num_bits) - 1;
 
-  YAML::Node rf = config["RF"];
-  rx_rate = rf["rx_rate"].as<double>();
-  tx_rate = rf["tx_rate"].as<double>();
-  freq = rf["freq"].as<double>();
-  rx_gain = rf["rx_gain"].as<double>();
-  tx_gain = rf["tx_gain"].as<double>();
-  bw = rf["bw"].as<double>();
-  clk_rate = rf["clk_rate"].as<double>();
+  YAML::Node rf0 = config["RF0"];
+  YAML::Node rf1 = config["RF1"];
+  /*rx_rate = rf1["rx_rate"].as<double>();
+  tx_rate = rf1["tx_rate"].as<double>();
+  freq = rf1["freq"].as<double>();
+  rx_gain = rf1["rx_gain"].as<double>();
+  tx_gain = rf1["tx_gain"].as<double>();
+  bw = rf1["bw"].as<double>();
+  tx_ant = rf1["tx_ant"].as<string>();
+  rx_ant = rf1["rx_ant"].as<string>();*/
 
   YAML::Node chirp = config["CHIRP"];
   time_offset = chirp["time_offset"].as<double>();
@@ -194,8 +202,39 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // set master clock rate
   usrp->set_master_clock_rate(clk_rate);
 
+  // detect which channels to use
+  vector<string> tx_channel_strings;
+  vector<size_t> tx_channel_nums;
+  boost::split(tx_channel_strings, tx_channels, boost::is_any_of("\"',"));
+  for (size_t ch = 0; ch < tx_channel_strings.size(); ch++) {
+    size_t chan = stoi(tx_channel_strings[ch]);
+    if (chan >= usrp->get_tx_num_channels()) {
+      throw std::runtime_error("Invalid TX channel(s) specified.");
+    } else
+      tx_channel_nums.push_back(stoi(tx_channel_strings[ch]));
+  }
+  vector<string> rx_channel_strings;
+  vector<size_t> rx_channel_nums;
+  boost::split(rx_channel_strings, rx_channels, boost::is_any_of("\"',"));
+  for (size_t ch = 0; ch < rx_channel_strings.size(); ch++) {
+    size_t chan = stoi(rx_channel_strings[ch]);
+    if (chan >= usrp->get_rx_num_channels()) {
+      throw std::runtime_error("Invalid RX channel(s) specified.");
+    } else
+      rx_channel_nums.push_back(stoi(rx_channel_strings[ch]));
+  }
+
+  // set the RF parameters based on 1 or 2 channel operation
+  if (tx_channel_nums.size() == 1) {
+    set_rf_params_single(usrp, rf0);
+  } else if (tx_channel_nums.size() == 2) {
+    set_rf_params_multi(usrp, rf0, rf1, rx_channel_nums, tx_channel_nums);
+  } else {
+    throw std::runtime_error("Number of channels requested not supported");
+  }
+
   // set rx and tx sample rates
-  usrp->set_rx_rate(rx_rate);
+  /*usrp->set_rx_rate(rx_rate);
   usrp->set_tx_rate(tx_rate);
 
   // set center frequency at the same time for both daughterboards
@@ -223,7 +262,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // set the antenna
   usrp->set_rx_antenna(rx_ant);
-  usrp->set_tx_antenna(tx_ant);
+  usrp->set_tx_antenna(tx_ant);*/
 
   // allow for some setup time
   this_thread::sleep_for(chrono::seconds(1));
@@ -239,7 +278,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   stream_args_t stream_args("fc32", "sc16");
 
   /** MORE SANITY CHECKING **/
-  cout << boost::format("Lock mboard clocks: %f") % clk_ref << endl;
+  /*cout << boost::format("Lock mboard clocks: %f") % clk_ref << endl;
   cout << boost::format("Subdev set to: %f") % subdev << endl;
   cout << boost::format("Master clock rate: %f MHz...") % (usrp->get_master_clock_rate() / 1e6) << endl;
   cout << boost::format("RX Rate: %f Msps...") % (usrp->get_rx_rate() / 1e6) << endl;
@@ -252,7 +291,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     cout << boost::format("Analog RX Bandwidth: %f MHz...") % (usrp->get_rx_bandwidth() / 1e6) << endl;
   }
   cout << boost::format("RX Antenna: %s") % usrp->get_rx_antenna() << endl;
-  cout << boost::format("TX Antenna: %s") % usrp->get_tx_antenna() << endl << endl;
+  cout << boost::format("TX Antenna: %s") % usrp->get_tx_antenna() << endl << endl;*/
 
   // Check Ref and LO Lock detect
   vector<std::string> tx_sensor_names, rx_sensor_names;
