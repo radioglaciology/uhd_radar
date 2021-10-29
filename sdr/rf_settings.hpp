@@ -10,7 +10,8 @@ using namespace uhd;
 using namespace std;
 
 // Set USRP RF parameters for a single channel of operation
-bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0);
+bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0, 
+                          vector<size_t> rx_channels, vector<size_t> tx_channels);
 
 // Set USRP RF parameters for multi channel operation
 bool set_rf_params_multi(usrp::multi_usrp::sptr usrp, YAML::Node rf0, YAML::Node rf1, 

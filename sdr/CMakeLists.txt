@@ -53,7 +53,7 @@ include_directories(
 link_directories(${Boost_LIBRARY_DIRS})
 
 ### Make the executable #######################################################
-add_executable(radar main.cpp rf_settings.cpp rf_settings.hpp)
+add_executable(radar main.cpp rf_settings.cpp rf_settings.hpp utils.cpp utils.hpp)
 
 set(CMAKE_BUILD_TYPE "Release")
 

@@ -13,10 +13,12 @@
 #include <csignal>
 #include <complex>
 #include <thread>
+#include <cstdlib>
 
 #include "yaml-cpp/yaml.h"
 
 #include "rf_settings.hpp"
+#include "utils.hpp"
 
 //#define USE_GPIO
 
@@ -46,6 +48,7 @@ void sig_int_handler(int){stop_signal_called = true;}
  */
 boost::barrier sent_bar(2);
 boost::barrier recv_bar(2);
+boost::barrier end_bar(2);
 
 /*** CONFIGURATION PARAMETERS ***/
 
@@ -127,14 +130,14 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   YAML::Node rf0 = config["RF0"];
   YAML::Node rf1 = config["RF1"];
-  /*rx_rate = rf1["rx_rate"].as<double>();
+  rx_rate = rf1["rx_rate"].as<double>();
   tx_rate = rf1["tx_rate"].as<double>();
   freq = rf1["freq"].as<double>();
   rx_gain = rf1["rx_gain"].as<double>();
   tx_gain = rf1["tx_gain"].as<double>();
   bw = rf1["bw"].as<double>();
   tx_ant = rf1["tx_ant"].as<string>();
-  rx_ant = rf1["rx_ant"].as<string>();*/
+  rx_ant = rf1["rx_ant"].as<string>();
 
   YAML::Node chirp = config["CHIRP"];
   time_offset = chirp["time_offset"].as<double>();
@@ -226,43 +229,12 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // set the RF parameters based on 1 or 2 channel operation
   if (tx_channel_nums.size() == 1) {
-    set_rf_params_single(usrp, rf0);
+    set_rf_params_single(usrp, rf0, rx_channel_nums, tx_channel_nums);
   } else if (tx_channel_nums.size() == 2) {
     set_rf_params_multi(usrp, rf0, rf1, rx_channel_nums, tx_channel_nums);
   } else {
     throw std::runtime_error("Number of channels requested not supported");
   }
-
-  // set rx and tx sample rates
-  /*usrp->set_rx_rate(rx_rate);
-  usrp->set_tx_rate(tx_rate);
-
-  // set center frequency at the same time for both daughterboards
-  usrp->clear_command_time();
-  // set command time for .1s in the future
-  usrp->set_command_time(usrp->get_time_now() + time_spec_t(0.1)); 
-
-  tune_request_t tune_request(freq);
-  usrp->set_rx_freq(tune_request);
-  usrp->set_tx_freq(tune_request);
-
-  // sleep 100ms (~10ms after retune occurs) to allow LO to lock
-  this_thread::sleep_for(chrono::milliseconds(110)); 
-  usrp->clear_command_time();
-
-  // set the rf gain
-  usrp->set_rx_gain(rx_gain);
-  usrp->set_tx_gain(tx_gain);
-
-  // set the IF filter bandwidth
-  if (bw != 0)
-  {
-    usrp->set_rx_bandwidth(bw);
-  }
-
-  // set the antenna
-  usrp->set_rx_antenna(rx_ant);
-  usrp->set_tx_antenna(tx_ant);*/
 
   // allow for some setup time
   this_thread::sleep_for(chrono::seconds(1));
@@ -270,74 +242,33 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   cout << "INFO: Number of TX samples: " << num_tx_samps << endl;
   cout << "INFO: Number of RX samples: " << num_rx_samps << endl << endl;
 
-  // set device timestamp
- // cout << boost::format("Setting device timestamp to 0...") << endl;
- // usrp->set_time_now(time_spec_t(0.0));
-
   // stream arguments for both tx and rx
   stream_args_t stream_args("fc32", "sc16");
 
-  /** MORE SANITY CHECKING **/
-  /*cout << boost::format("Lock mboard clocks: %f") % clk_ref << endl;
-  cout << boost::format("Subdev set to: %f") % subdev << endl;
-  cout << boost::format("Master clock rate: %f MHz...") % (usrp->get_master_clock_rate() / 1e6) << endl;
-  cout << boost::format("RX Rate: %f Msps...") % (usrp->get_rx_rate() / 1e6) << endl;
-  cout << boost::format("TX Rate: %f Msps...") % (usrp->get_tx_rate() / 1e6) << endl;
-  cout << boost::format("RX Center Freq: %f MHz...") % (usrp->get_rx_freq() / 1e6) << endl;
-  cout << boost::format("TX Center Freq: %f MHz...") % (usrp->get_tx_freq() / 1e6) << endl;
-  cout << boost::format("RX Gain: %f dB...") % usrp->get_rx_gain() << endl;
-  cout << boost::format("TX Gain: %f dB...") % usrp->get_tx_gain() << endl;
-  if (bw != 0) {
-    cout << boost::format("Analog RX Bandwidth: %f MHz...") % (usrp->get_rx_bandwidth() / 1e6) << endl;
-  }
-  cout << boost::format("RX Antenna: %s") % usrp->get_rx_antenna() << endl;
-  cout << boost::format("TX Antenna: %s") % usrp->get_tx_antenna() << endl << endl;*/
-
   // Check Ref and LO Lock detect
   vector<std::string> tx_sensor_names, rx_sensor_names;
-  tx_sensor_names = usrp->get_tx_sensor_names(0);
-  if (find(tx_sensor_names.begin(), tx_sensor_names.end(), "lo_locked") != tx_sensor_names.end())
-  {
-    sensor_value_t lo_locked = usrp->get_tx_sensor("lo_locked", 0);
-    cout << boost::format("Checking TX: %s ...") % lo_locked.to_pp_string()
-         << endl;
-    UHD_ASSERT_THROW(lo_locked.to_bool());
-
-    // for device with multiple channels
-    /*lo_locked = usrp->get_tx_sensor("lo_locked", 1);
-    cout << boost::format("Checking TX: %s ...") % lo_locked.to_pp_string()
-         << endl;
-    UHD_ASSERT_THROW(lo_locked.to_bool());*/
-  }
-  rx_sensor_names = usrp->get_rx_sensor_names(0);
-  if (find(rx_sensor_names.begin(), rx_sensor_names.end(), "lo_locked") != rx_sensor_names.end())
-  {
-    sensor_value_t lo_locked = usrp->get_rx_sensor("lo_locked", 0);
-    cout << boost::format("Checking RX: %s ...") % lo_locked.to_pp_string()
-         << endl;
-    UHD_ASSERT_THROW(lo_locked.to_bool());
-
-    // for device with multiple channels
-    /*lo_locked = usrp->get_rx_sensor("lo_locked", 1);
-    cout << boost::format("Checking RX: %s ...") % lo_locked.to_pp_string()
-         << endl;
-    UHD_ASSERT_THROW(lo_locked.to_bool());*/
+  for (size_t ch = 0; ch < tx_channel_nums.size(); ch++) {
+    // Check LO locked
+    tx_sensor_names = usrp->get_tx_sensor_names(ch);
+    if (find(tx_sensor_names.begin(), tx_sensor_names.end(), "lo_locked") != tx_sensor_names.end())
+    {
+      sensor_value_t lo_locked = usrp->get_tx_sensor("lo_locked", ch);
+      cout << boost::format("Checking TX: %s ...") % lo_locked.to_pp_string()
+           << endl;
+      UHD_ASSERT_THROW(lo_locked.to_bool());
+    }
   }
 
-  tx_sensor_names = usrp->get_mboard_sensor_names(0);
-  if ((clk_ref == "mimo") and (find(tx_sensor_names.begin(), tx_sensor_names.end(), "mimo_locked") != tx_sensor_names.end()))
-  {
-    sensor_value_t mimo_locked = usrp->get_mboard_sensor("mimo_locked", 0);
-    cout << boost::format("Checking TX: %s ...") % mimo_locked.to_pp_string()
-         << endl;
-    UHD_ASSERT_THROW(mimo_locked.to_bool());
-  }
-  if ((clk_ref == "external") and (find(tx_sensor_names.begin(), tx_sensor_names.end(), "ref_locked") != tx_sensor_names.end()))
-  {
-    sensor_value_t ref_locked = usrp->get_mboard_sensor("ref_locked", 0);
-    cout << boost::format("Checking TX: %s ...") % ref_locked.to_pp_string()
-         << endl;
-    UHD_ASSERT_THROW(ref_locked.to_bool());
+  for (size_t ch = 0; ch < rx_channel_nums.size(); ch++) {
+    // Check LO locked
+    rx_sensor_names = usrp->get_rx_sensor_names(ch);
+    if (find(rx_sensor_names.begin(), rx_sensor_names.end(), "lo_locked") != rx_sensor_names.end())
+    {
+      sensor_value_t lo_locked = usrp->get_rx_sensor("lo_locked", ch);
+      cout << boost::format("Checking RX: %s ...") % lo_locked.to_pp_string()
+           << endl;
+      UHD_ASSERT_THROW(lo_locked.to_bool());
+    }
   }
 
   // update the offset time for start of streaming to be offset from the current usrp time
@@ -520,6 +451,8 @@ void transmit_worker(usrp::multi_usrp::sptr usrp)
     sent_bar.wait();
     recv_bar.wait();
   }
+
+  infile.close();
 }
 
 /*
@@ -552,8 +485,9 @@ void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
   // receive buffer
   vector<complex<float>> buff(rx_stream->get_max_num_samps());
   vector<void *> buffs;
-  for(size_t ch=0;ch<rx_stream->get_num_channels();ch++)
+  for (size_t ch = 0; ch < rx_stream->get_num_channels(); ch++) {
     buffs.push_back(&buff.front());
+  }
 
   double timeout = 5; //pulse_rep_int*2; // delay before receive + padding
 
@@ -577,14 +511,8 @@ void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
       }
       num_acc_samps += n_samps;
     }
-    
-    
   }
 
   if (num_acc_samps < num_rx_samps) cerr << "Receive timeout before all "
     "samples received..." << endl;
 }
-
-  
-  
-  

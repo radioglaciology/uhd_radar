@@ -18,7 +18,8 @@ using namespace uhd;
  * Outputs: returns true if all RF parameters were successfully set, 
  * otherwise returns false
  */
-bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0)
+bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0, 
+                          vector<size_t> rx_channels, vector<size_t> tx_channels)
 {
     // get first block of rf parameters (for channel 0)
     double rx_rate = rf0["rx_rate"].as<double>();
@@ -30,7 +31,10 @@ bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0)
     string tx_ant = rf0["tx_ant"].as<string>();
     string rx_ant = rf0["rx_ant"].as<string>();
 
-    size_t channel = 0; // this is the default anyways
+    if (!(rx_channels == tx_channels)) {
+        throw std::runtime_error("Different TX and RX channel lists are not currently supported.");
+    } 
+    size_t channel = rx_channels[0]; 
 
     // set the sample rates
     usrp->set_tx_rate(tx_rate, channel);
@@ -113,6 +117,7 @@ bool set_rf_params_multi(usrp::multi_usrp::sptr usrp, YAML::Node rf0, YAML::Node
     vector<size_t> channels = tx_channels;
 
     // set the sample rates
+    cout << "Setting the sample rates in set_rf_params_multi()" << endl;
     usrp->set_tx_rate(tx_rate0, channels[0]);
     usrp->set_rx_rate(rx_rate0, channels[0]);
     usrp->set_tx_rate(tx_rate1, channels[1]);
