@@ -41,7 +41,9 @@ void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
  * SIG INT HANDLER
  */
 static bool stop_signal_called = false;
-void sig_int_handler(int){stop_signal_called = true;}
+void sig_int_handler(int) {
+  stop_signal_called = true;
+}
 
 /*
  * Thread barriers
@@ -360,11 +362,23 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
         sample_sum[n] += rx_sample[n];
       }
 
+      // check if someone wants to stop
+      if (stop_signal_called) {
+        break;
+      }
+
       recv_bar.wait();
     } // then take average of coherently summed samples
     /*for (int n = 0; n < num_rx_samps; n++) {
       sample_sum[n] = sample_sum[n] / ((float)num_presums);
     }*/
+
+    // check if someone wants to stop
+    if (stop_signal_called) {
+      recv_bar.wait();
+      sent_bar.wait();
+      break;
+    }
 
     // write summed data to file
     if (outfile.is_open()) {
@@ -424,8 +438,13 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
 
   for (int i = 0; i < num_pulses; i++)
   {
-    if (stop_signal_called)
+    if (stop_signal_called) { 
+      // someone wants to stop, let's try to clean up first
+      infile.close();
+      sent_bar.wait();
+      recv_bar.wait();
       break;
+    }
 
     double rx_time = time_offset + (pulse_rep_int * i);
     double tx_time = rx_time - tx_lead;
@@ -495,7 +514,10 @@ void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
 
   size_t num_acc_samps = 0;
   while(num_acc_samps < num_rx_samps){
-    if (stop_signal_called) break;
+    if (stop_signal_called) {
+
+      break;
+    }
 
     size_t n_samps = rx_stream->recv(
         buffs, buff.size(), md, timeout, true);
