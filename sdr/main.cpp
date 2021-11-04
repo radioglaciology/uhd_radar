@@ -28,7 +28,7 @@ using namespace uhd;
 /*
  * PROTOTYPES
  */
-void transmit_worker(usrp::multi_usrp::sptr usrp);
+void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums);
   
 void transmit_samples(tx_streamer::sptr& tx_stream,
   vector<complex<float>>& tx_buff, time_spec_t tx_time,
@@ -288,13 +288,14 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   
   /*** SPAWN THE TX THREAD ***/
   boost::thread_group transmit_thread;
-  transmit_thread.create_thread(boost::bind(&transmit_worker, usrp));
+  transmit_thread.create_thread(boost::bind(&transmit_worker, usrp, tx_channel_nums));
 
   /*** RX SETUP ***/
 
   // (TX setup happens in the TX thread)
 
   // rx streamer
+  stream_args.channels = rx_channel_nums;
   rx_streamer::sptr rx_stream = usrp->get_rx_stream(stream_args);
 
   // open file for writing rx samples
@@ -391,13 +392,14 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 /*
  * TRANSMIT_WORKER
  */
-void transmit_worker(usrp::multi_usrp::sptr usrp)
+void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums)
 {
 
   /*** TX SETUP ***/
 
   // stream arguments for both tx and rx
   stream_args_t stream_args("fc32", "sc16");
+  stream_args.channels = tx_channel_nums;
 
   // tx streamer
   tx_streamer::sptr tx_stream = usrp->get_tx_stream(stream_args);
