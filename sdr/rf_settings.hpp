@@ -18,6 +18,7 @@ bool set_rf_params_multi(usrp::multi_usrp::sptr usrp, YAML::Node rf0, YAML::Node
                          vector<size_t> rx_channels, vector<size_t> tx_channels);
 
 // Check whether requested RF parameters are equal to the reported values
-bool rf_error_check(usrp::multi_usrp::sptr usrp, YAML::Node rf, size_t channel);
+bool rf_error_check(usrp::multi_usrp::sptr usrp, YAML::Node rf, size_t tx_channel,
+                    size_t rx_channel);
 
 #endif // RF_SETTINGS_HPP

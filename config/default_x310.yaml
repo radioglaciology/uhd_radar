@@ -2,12 +2,12 @@
 
 # ----------------------- Chirp generation ------------------------ #
 GENERATE:
-    sample_rate: &s_rate 10e6        # Of the generated chirp, tx and rx sample rates [sps]
+    sample_rate: &s_rate 50e6        # Of the generated chirp, tx and rx sample rates [sps]
     chirp_type: 'linear'             # Can be 'linear'
-    chirp_bandwidth: 10e6            # [Hz]
+    chirp_bandwidth: 50e6            # [Hz]
     window: 'rectangular'            # Window function applied to the chirp
     chirp_length: &chirp_len 20e-6    # [s]
-    out_file: &ch_sent "data/usrp_samples.dat"   # The name of the output binary file
+    out_file: &ch_sent "data/usrp_samples_50MHz_20us_nzp.dat"   # The name of the output binary file
     show_plot: True                 # Display a time-domain plot of the generated chirp
 
 # ----------------- TX/RX for X310 --------------------- #
@@ -16,8 +16,8 @@ DEVICE:
     subdev: "A:0 B:0"
     clk_ref: "internal"
     clk_rate: 200e6      # Clock Rate [Hz]
-    tx_channels: "0,1"
-    rx_channels: "0,1"
+    tx_channels: "0"
+    rx_channels: "1"
 GPIO:
     gpio: "aFP0"
     num_bits: 8
@@ -25,17 +25,17 @@ RF0:                     # parameters for first RF channel
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
     freq: 300e6          # Center Frequency (for mixing)
-    rx_gain: 10         # RX Gain [dB]
-    tx_gain: 10         # TX Gain [dB]
+    rx_gain: 0         # RX Gain [dB]
+    tx_gain: 0         # TX Gain [dB]
     bw: 0                # TX/RW Bandwidth [Hz]
     tx_ant: "TX/RX"
     rx_ant: "RX2"
-RF1:                     # parameters for second RF channel
+RF1:                     # parameters for second RF channel, only used if set to multiple channels
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 500e6          # Center Frequency (for mixing)
-    rx_gain: 10         # RX Gain [dB]
-    tx_gain: 10         # TX Gain [dB]
+    freq: 300e6          # Center Frequency (for mixing)
+    rx_gain: 0         # RX Gain [dB]
+    tx_gain: 0         # TX Gain [dB]
     bw: 0                # TX/RW Bandwidth [Hz]
     tx_ant: "TX/RX"
     rx_ant: "RX2"
@@ -46,7 +46,7 @@ CHIRP:
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
     pulse_rep_int: 5e-3 # Chirp period [s]
     tx_lead: 0e-6       # Time between start of TX and RX[s]
-    num_pulses: &num_pulses 1000        # No. of chirps to TX/RX
+    num_pulses: &num_pulses 10        # No. of chirps to TX/RX
     num_presums: &num_presums 1         # No. of chirps to (coherently) presum onboard (must be at least 1)
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit

@@ -31,43 +31,44 @@ bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0,
     string tx_ant = rf0["tx_ant"].as<string>();
     string rx_ant = rf0["rx_ant"].as<string>();
 
-    if (!(rx_channels == tx_channels)) {
-        throw std::runtime_error("Different TX and RX channel lists are not currently supported.");
+    if (!(rx_channels.size() == tx_channels.size())) {
+        throw std::runtime_error("Different TX and RX channel list lengths are not currently supported.");
     } 
-    size_t channel = rx_channels[0]; 
+    size_t tx_channel = tx_channels[0];
+    size_t rx_channel = rx_channels[0]; 
 
     // set the sample rates
-    usrp->set_tx_rate(tx_rate, channel);
-    usrp->set_rx_rate(rx_rate, channel);
+    usrp->set_rx_rate(rx_rate, rx_channel);
+    usrp->set_tx_rate(tx_rate, tx_channel);
 
     // set center frequency at same time for both daughterboards
     usrp->clear_command_time();
     usrp->set_command_time(usrp->get_time_now() + time_spec_t(0.1));
 
     tune_request_t tune_request(fc);
-    usrp->set_rx_freq(tune_request, channel);
-    usrp->set_tx_freq(tune_request, channel);
+    usrp->set_rx_freq(tune_request, rx_channel);
+    usrp->set_tx_freq(tune_request, tx_channel);
 
     // sleep 100ms (~10ms after retune occurs) to allow LO to lock
     this_thread::sleep_for(chrono::milliseconds(110)); 
     usrp->clear_command_time();
 
     // set the rf gain
-    usrp->set_rx_gain(rx_gain, channel);
-    usrp->set_tx_gain(tx_gain, channel);
+    usrp->set_rx_gain(rx_gain, rx_channel);
+    usrp->set_tx_gain(tx_gain, tx_channel);
 
     // set the IF filter bandwidth
     if (bw != 0)
     {
-        usrp->set_rx_bandwidth(bw, channel);
+        usrp->set_rx_bandwidth(bw, rx_channel);
     }
 
     // set the antenna
-    usrp->set_rx_antenna(rx_ant, channel);
-    usrp->set_tx_antenna(tx_ant, channel);
+    usrp->set_rx_antenna(rx_ant, rx_channel);
+    usrp->set_tx_antenna(tx_ant, tx_channel);
 
     // sanity check actual values against requested values
-    bool mismatch = rf_error_check(usrp, rf0, channel);
+    bool mismatch = rf_error_check(usrp, rf0, tx_channel, rx_channel);
 
     return !mismatch;
 }
@@ -111,17 +112,16 @@ bool set_rf_params_multi(usrp::multi_usrp::sptr usrp, YAML::Node rf0, YAML::Node
     string rx_ant1 = rf1["rx_ant"].as<string>();
 
     // check if tx and rx channel lists are the same
-    if (!(rx_channels == tx_channels)) {
-        throw std::runtime_error("Different TX and RX channel lists are not currently supported.");
+    if (!(rx_channels.size() == tx_channels.size())) {
+        throw std::runtime_error("Different TX and RX channel list lengths are not currently supported.");
     } 
-    vector<size_t> channels = tx_channels;
 
     // set the sample rates
     cout << "Setting the sample rates in set_rf_params_multi()" << endl;
-    usrp->set_tx_rate(tx_rate0, channels[0]);
-    usrp->set_rx_rate(rx_rate0, channels[0]);
-    usrp->set_tx_rate(tx_rate1, channels[1]);
-    usrp->set_rx_rate(rx_rate1, channels[1]);
+    usrp->set_tx_rate(tx_rate0, tx_channels[0]);
+    usrp->set_rx_rate(rx_rate0, rx_channels[0]);
+    usrp->set_tx_rate(tx_rate1, tx_channels[1]);
+    usrp->set_rx_rate(rx_rate1, rx_channels[1]);
 
     // set center frequency at same time for both daughterboards
     usrp->clear_command_time();
@@ -129,38 +129,38 @@ bool set_rf_params_multi(usrp::multi_usrp::sptr usrp, YAML::Node rf0, YAML::Node
 
     tune_request_t tune_request0(fc0);
     tune_request_t tune_request1(fc1);
-    usrp->set_tx_freq(tune_request0, channels[0]);
-    usrp->set_rx_freq(tune_request0, channels[0]);
-    usrp->set_tx_freq(tune_request1, channels[1]);
-    usrp->set_rx_freq(tune_request1, channels[1]);
+    usrp->set_tx_freq(tune_request0, tx_channels[0]);
+    usrp->set_rx_freq(tune_request0, rx_channels[0]);
+    usrp->set_tx_freq(tune_request1, tx_channels[1]);
+    usrp->set_rx_freq(tune_request1, rx_channels[1]);
 
     // sleep 100ms (~10ms after retune occurs) to allow LO to lock
     this_thread::sleep_for(chrono::milliseconds(110)); 
     usrp->clear_command_time();
 
     // set the rf gain
-    usrp->set_rx_gain(rx_gain0, channels[0]);
-    usrp->set_tx_gain(tx_gain0, channels[0]);
-    usrp->set_rx_gain(rx_gain1, channels[1]);
-    usrp->set_tx_gain(tx_gain1, channels[1]);
+    usrp->set_rx_gain(rx_gain0, rx_channels[0]);
+    usrp->set_tx_gain(tx_gain0, tx_channels[0]);
+    usrp->set_rx_gain(rx_gain1, rx_channels[1]);
+    usrp->set_tx_gain(tx_gain1, tx_channels[1]);
 
     // set the IF filter bandwidth
     if (bw0 != 0) {
-        usrp->set_rx_bandwidth(bw0, channels[0]);
+        usrp->set_rx_bandwidth(bw0, rx_channels[0]);
     }
     if (bw1 != 0) {
-        usrp->set_rx_bandwidth(bw1, channels[1]);
+        usrp->set_rx_bandwidth(bw1, rx_channels[1]);
     }
 
     // set the antenna
-    usrp->set_rx_antenna(rx_ant0, channels[0]);
-    usrp->set_tx_antenna(tx_ant0, channels[0]);
-    usrp->set_rx_antenna(rx_ant1, channels[1]);
-    usrp->set_tx_antenna(tx_ant1, channels[1]);
+    usrp->set_rx_antenna(rx_ant0, rx_channels[0]);
+    usrp->set_tx_antenna(tx_ant0, tx_channels[0]);
+    usrp->set_rx_antenna(rx_ant1, rx_channels[1]);
+    usrp->set_tx_antenna(tx_ant1, tx_channels[1]);
 
     // sanity check actual values against requested values
-    bool mismatch = rf_error_check(usrp, rf0, channels[0]);
-    mismatch = mismatch || rf_error_check(usrp, rf1, channels[1]); 
+    bool mismatch = rf_error_check(usrp, rf0, tx_channels[0], rx_channels[0]);
+    mismatch = mismatch || rf_error_check(usrp, rf1, tx_channels[1], rx_channels[1]); 
 
     return !mismatch;
 }
@@ -175,7 +175,8 @@ bool set_rf_params_multi(usrp::multi_usrp::sptr usrp, YAML::Node rf0, YAML::Node
  * Outputs: returns true if there is a mismatch between requested and 
  * actual RF parameters. Returns false if everything was successfully set. 
  */
-bool rf_error_check(usrp::multi_usrp::sptr usrp, YAML::Node rf, size_t channel) {
+bool rf_error_check(usrp::multi_usrp::sptr usrp, YAML::Node rf, size_t tx_channel, 
+                    size_t rx_channel) {
     bool mismatch = false;
 
     // get first block of requested rf parameters (for channel 0)
@@ -188,57 +189,57 @@ bool rf_error_check(usrp::multi_usrp::sptr usrp, YAML::Node rf, size_t channel) 
     string tx_ant = rf["tx_ant"].as<string>();
     string rx_ant = rf["rx_ant"].as<string>();
 
-    if (usrp->get_rx_rate(channel) != rx_rate) {
+    if (usrp->get_rx_rate(rx_channel) != rx_rate) {
         cout << boost::format("[WARNING]: Requested RX rate (CH%d): %f MHz. Actual RX rate: %f MHz.")
-            % channel % (rx_rate / (1e6)) % (usrp->get_rx_rate(channel) / (1e6)) << endl;
+            % rx_channel % (rx_rate / (1e6)) % (usrp->get_rx_rate(rx_channel) / (1e6)) << endl;
         mismatch = true;
     }
 
-    if (usrp->get_tx_rate(channel) != tx_rate) {
+    if (usrp->get_tx_rate(tx_channel) != tx_rate) {
         cout << boost::format("[WARNING]: Requested TX rate (CH%d): %f MHz. Actual TX rate: %f MHz.")
-            % channel % (tx_rate / (1e6)) % (usrp->get_tx_rate(channel) / (1e6)) << endl;
+            % tx_channel % (tx_rate / (1e6)) % (usrp->get_tx_rate(tx_channel) / (1e6)) << endl;
         mismatch = true;
     }
 
-    if (usrp->get_rx_freq(channel) != fc) {
+    if (usrp->get_rx_freq(rx_channel) != fc) {
         cout << boost::format("[WARNING]: Requested RX center freq (CH%d): %f MHz. Actual RX center freq: %f MHz.")
-            % channel % (fc / (1e6)) % (usrp->get_rx_freq(channel) / (1e6)) << endl;
+            % rx_channel % (fc / (1e6)) % (usrp->get_rx_freq(rx_channel) / (1e6)) << endl;
         mismatch = true;
     }
 
-    if (usrp->get_tx_freq(channel) != fc) {
+    if (usrp->get_tx_freq(tx_channel) != fc) {
         cout << boost::format("[WARNING]: Requested TX center freq (CH%d): %f MHz. Actual TX center freq: %f MHz.")
-            % channel % (fc / (1e6)) % (usrp->get_tx_freq(channel) / (1e6)) << endl;
+            % tx_channel % (fc / (1e6)) % (usrp->get_tx_freq(tx_channel) / (1e6)) << endl;
         mismatch = true;
     }
 
-    if (usrp->get_rx_gain(channel) != rx_gain) {
+    if (usrp->get_rx_gain(rx_channel) != rx_gain) {
         cout << boost::format("[WARNING]: Requested RX gain (CH%d): %f dB. Actual RX gain: %f dB.")
-            % channel % rx_gain % usrp->get_rx_gain(channel) << endl;
+            % rx_channel % rx_gain % usrp->get_rx_gain(rx_channel) << endl;
         mismatch = true;
     }
 
-    if (usrp->get_tx_gain(channel) != tx_gain) {
+    if (usrp->get_tx_gain(tx_channel) != tx_gain) {
         cout << boost::format("[WARNING]: Requested TX gain (CH%d): %f dB. Actual TX gain: %f dB.")
-            % channel % tx_gain % usrp->get_tx_gain(channel) << endl;
+            % tx_channel % tx_gain % usrp->get_tx_gain(tx_channel) << endl;
         mismatch = true;
     }
 
-    if ((usrp->get_rx_bandwidth(channel) != bw) && (bw != 0)) {
+    if ((usrp->get_rx_bandwidth(rx_channel) != bw) && (bw != 0)) {
         cout << boost::format("[WARNING]: Requested analog bandwidth (CH%d): %f MHz. Actual analog bandwidth: %f MHz.")
-            % channel % bw % (usrp->get_rx_bandwidth(channel) / (1e6)) << endl;
+            % rx_channel % bw % (usrp->get_rx_bandwidth(rx_channel) / (1e6)) << endl;
         mismatch = true;
     }
 
-    if (usrp->get_tx_antenna(channel) != tx_ant) {
+    if (usrp->get_tx_antenna(tx_channel) != tx_ant) {
         cout << boost::format("[WARNING]: Requested TX ant (CH%d): %s. Actual TX ant: %s.")
-            % channel % tx_ant % usrp->get_tx_antenna(channel) << endl;
+            % tx_channel % tx_ant % usrp->get_tx_antenna(tx_channel) << endl;
         mismatch = true;
     }
 
-    if (usrp->get_rx_antenna(channel) != rx_ant) {
+    if (usrp->get_rx_antenna(rx_channel) != rx_ant) {
         cout << boost::format("[WARNING]: Requested RX ant (CH%d): %s. Actual RX ant: %s.")
-            % channel % rx_ant % usrp->get_rx_antenna(channel) << endl;
+            % rx_channel % rx_ant % usrp->get_rx_antenna(rx_channel) << endl;
         mismatch = true;
     }
 
