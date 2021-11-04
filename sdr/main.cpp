@@ -295,6 +295,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // (TX setup happens in the TX thread)
 
   // rx streamer
+  stream_args.channels = rx_channel_nums;
   rx_streamer::sptr rx_stream = usrp->get_rx_stream(stream_args);
 
   // open file for writing rx samples
