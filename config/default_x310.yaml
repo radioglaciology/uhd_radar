@@ -12,28 +12,28 @@ GENERATE:
 
 # ----------------- TX/RX for X310 --------------------- #
 DEVICE:
-    device_args: "addr=192.168.10.2"   # device address
+    device_args: "addr=192.168.10.2,dboard_clock_rate=20e6"   # device address
     subdev: "A:0 B:0"
     clk_ref: "internal"
     clk_rate: 200e6      # Clock Rate [Hz]
-    tx_channels: "1"
-    rx_channels: "1"
+    tx_channels: "0"
+    rx_channels: "0"
 GPIO:
     gpio: "aFP0"
     num_bits: 8
 RF0:                     # parameters for first RF channel
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 300e6          # Center Frequency (for mixing)
-    rx_gain: 0         # RX Gain [dB]
-    tx_gain: 0         # TX Gain [dB]
+    freq: 500e6          # Center Frequency (for mixing)
+    rx_gain: 10         # RX Gain [dB]
+    tx_gain: 10         # TX Gain [dB]
     bw: 0                # TX/RW Bandwidth [Hz]
     tx_ant: "TX/RX"
     rx_ant: "RX2"
 RF1:                     # parameters for second RF channel, only used if set to multiple channels
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 300e6          # Center Frequency (for mixing)
+    freq: 500e6          # Center Frequency (for mixing)
     rx_gain: 10         # RX Gain [dB]
     tx_gain: 10         # TX Gain [dB]
     bw: 0                # TX/RW Bandwidth [Hz]
@@ -50,7 +50,7 @@ CHIRP:
     num_presums: &num_presums 1         # No. of chirps to (coherently) presum onboard (must be at least 1)
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "data/rx_sandbox.dat"  # Save rx data here
+    save_loc: &save_loc "data/20211108_1050.dat"  # Save rx data here
     
 # -------------------------- Plot Samples --------------------------- #
 PLOT:
