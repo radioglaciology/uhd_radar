@@ -7,4 +7,4 @@ cmake ..
 make
 time ./radar "$@"
 cd ../..
-python postprocessing/plot_samples.py "$@"
+python postprocessing/save_data.py "$@"
