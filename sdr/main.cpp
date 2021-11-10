@@ -80,6 +80,7 @@ string rx_ant;
 // CHIRP
 double time_offset;
 double tx_duration;
+double rx_duration;
 double tr_on_lead;
 double tr_off_trail;
 double pulse_rep_int;
@@ -144,6 +145,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   YAML::Node chirp = config["CHIRP"];
   time_offset = chirp["time_offset"].as<double>();
   tx_duration = chirp["tx_duration"].as<double>();
+  rx_duration = chirp["rx_duration"].as<double>();
   tr_on_lead = chirp["tr_on_lead"].as<double>();
   tr_off_trail = chirp["tr_off_trail"].as<double>();
   pulse_rep_int = chirp["pulse_rep_int"].as<double>();
@@ -158,7 +160,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // Calculated parameters
   tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
   num_tx_samps = tx_rate * tx_duration; // Total samples to transmit per chirp
-  num_rx_samps = rx_rate * tx_duration * 3; // Total samples to receive per chirp
+  num_rx_samps = rx_rate * rx_duration; // Total samples to receive per chirp
 
 
   /** Thread, interrupt setup **/
@@ -314,13 +316,18 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   int error_count = 0;
 
   /*** RX LOOP AND SUM ***/
+  if (num_pulses < 0) {
+    cout << "num_pulses is < 0. Will continue to send chirps until stopped with Ctrl-C." << endl;
+  }
 
-  for (int i = 0; i < num_pulses; i += num_presums) {
+  //for (int i = 0; i < num_pulses; i += num_presums) {
+  int chirps_sent = 0;
+  while ((num_pulses < 0) || (chirps_sent < num_pulses)) {
+
     for (int m = 0; m < num_presums; m++) {
-
       sent_bar.wait();
 
-      double rx_time = time_offset + (pulse_rep_int * (i + m));
+      double rx_time = time_offset + (pulse_rep_int * chirps_sent);
       double tx_time = rx_time - tx_lead;
       double time_ms;
 
@@ -342,7 +349,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       stream_cmd.time_spec = time_spec_t(rx_time);
 
       time_ms = time_spec_t(rx_time).get_real_secs() * 1000.0;
-      cout << boost::format("Scheduling chirp %d RX for %0.3f ms\n") % (i + m) % time_ms;
+      cout << boost::format("Scheduling chirp %d RX for %0.3f ms\n") % (chirps_sent) % time_ms;
 
       rx_stream->issue_stream_cmd(stream_cmd);
 
@@ -356,11 +363,13 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
         error_state = false;
       }
 
-      cout << "Received chirp " << i << " [samples: " << num_rx_samps << "]" << endl;
+      cout << "Received chirp " << chirps_sent << " [samples: " << num_rx_samps << "]" << endl;
 
       for (int n = 0; n < num_rx_samps; n++) {
         sample_sum[n] += rx_sample[n];
       }
+
+      chirps_sent++;
 
       // check if someone wants to stop
       if (stop_signal_called) {
@@ -436,17 +445,17 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
   vector<complex<float>> tx_buff(num_tx_samps);
   infile.read((char *)&tx_buff.front(), num_tx_samps * sizeof(complex<float>));
 
-  for (int i = 0; i < num_pulses; i++)
+  int chirps_sent = 0;
+  while ((num_pulses < 0) || (chirps_sent < num_pulses))
   {
     if (stop_signal_called) { 
       // someone wants to stop, let's try to clean up first
       infile.close();
       sent_bar.wait();
-      recv_bar.wait();
       break;
     }
 
-    double rx_time = time_offset + (pulse_rep_int * i);
+    double rx_time = time_offset + (pulse_rep_int * chirps_sent);
     double tx_time = rx_time - tx_lead;
     double time_ms;
 
@@ -455,7 +464,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
     double tr_on_time = tx_time - tr_on_lead;
 
     time_ms = (time_spec_t(tr_on_time).get_real_secs()) * 1000.0;
-    cout << boost::format("Scheduling chirp %d GPIO ON for %0.3f ms\n") % i % time_ms;
+    cout << boost::format("Scheduling chirp %d GPIO ON for %0.3f ms\n") % chirps_sent % time_ms;
 
     usrp->set_command_time(time_spec_t(tr_on_time));
     usrp->set_gpio_attr(gpio, "OUT", 0x01, gpio_mask);
@@ -463,10 +472,12 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
 #endif
 
     time_ms = (time_spec_t(tx_time).get_real_secs()) * 1000.0;
-    cout << boost::format("Scheduling chirp %d TX for %0.3f ms\n") % i % time_ms;
+    cout << boost::format("Scheduling chirp %d TX for %0.3f ms\n") % chirps_sent % time_ms;
 
     transmit_samples(tx_stream, tx_buff, time_spec_t(tx_time),
         num_tx_samps);
+
+    chirps_sent++;
 
     // Wait for the chirp to be received
     sent_bar.wait();
