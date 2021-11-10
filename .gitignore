@@ -5,6 +5,8 @@ sdr/build/
 data/**/*
 !data/README.md
 archive/
+.idea/*
+.DS_Store
 
 # Python
 
