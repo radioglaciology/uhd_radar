@@ -371,12 +371,13 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
       chirps_sent++;
 
+      recv_bar.wait();
+
       // check if someone wants to stop
       if (stop_signal_called) {
+        cout << "[RX] Stop signal set during inner loop. Breaking from inner loop." << endl;
         break;
       }
-
-      recv_bar.wait();
     } // then take average of coherently summed samples
     /*for (int n = 0; n < num_rx_samps; n++) {
       sample_sum[n] = sample_sum[n] / ((float)num_presums);
@@ -384,10 +385,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
     // check if someone wants to stop
     if (stop_signal_called) {
-      recv_bar.wait();
-      cout << "[RX] recv_bar cleared" << endl;
-      sent_bar.wait();
-      cout << "[RX] sent_bar cleared" << endl;
+      cout << "[RX] Reached stop signal handling for outer RX loop -> break" << endl;
       break;
     }
 
@@ -404,11 +402,12 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   /*** WRAP UP ***/
 
+  cout << "[RX] Closing output file." << endl;
   outfile.close();
 
-  cout << "Error count: " << error_count << endl;
+  cout << "[RX] Error count: " << error_count << endl;
   
-  cout << "Done." << endl << endl;
+  cout << "[RX] Done." << endl << endl;
 
   return EXIT_SUCCESS;
   
@@ -450,15 +449,15 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
   int chirps_sent = 0;
   while ((num_pulses < 0) || (chirps_sent < num_pulses))
   {
-    if (stop_signal_called) { 
-      // someone wants to stop, let's try to clean up first
-      infile.close();
-      sent_bar.wait();
-      cout << "[TX] sent_bar cleared" << endl;
-      recv_bar.wait();
-      cout << "[TX] recv_bar cleared" << endl;
-      break;
-    }
+    // if (stop_signal_called) { 
+    //   // someone wants to stop, let's try to clean up first
+    //   infile.close();
+    //   sent_bar.wait();
+    //   cout << "[TX] sent_bar cleared" << endl;
+    //   recv_bar.wait();
+    //   cout << "[TX] recv_bar cleared" << endl;
+    //   break;
+    // }
 
     double rx_time = time_offset + (pulse_rep_int * chirps_sent);
     double tx_time = rx_time - tx_lead;
@@ -484,12 +483,24 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
 
     chirps_sent++;
 
+    if (stop_signal_called) {
+      cout << "[TX] Stop signal set, but waiting for RX thread before quitting..." << endl;
+    }
+
     // Wait for the chirp to be received
     sent_bar.wait();
     recv_bar.wait();
+
+    if (stop_signal_called) {
+      cout << "[TX] stop signal called -> break" << endl;
+      break;
+    }
   }
 
+  cout << "[TX] Closing file" << endl;
   infile.close();
+  cout << "[TX] Done." << endl;
+
 }
 
 /*
