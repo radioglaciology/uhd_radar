@@ -42,11 +42,12 @@ RF1:                     # parameters for second RF channel
 CHIRP:
     time_offset: 1       # Time before first receive [s]
     tx_duration: *chirp_len # Transmission duration [s]
+    rx_duration: 150e-6   # Receive duration [s]
     tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
     pulse_rep_int: 5000e-6 # Chirp period [s]
     tx_lead: 0e+0        # Time between start of TX and RX[s]
-    num_pulses: &num_pulses 1000        # No. of chirps to TX/RX
+    num_pulses: &num_pulses 1000        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
     num_presums: &num_presums 10         # No. of chirps to (coherently) presum onboard (must be at least 1)
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
