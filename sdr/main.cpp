@@ -407,7 +407,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   cout << "[RX] Error count: " << error_count << endl;
   
-  cout << "[RX] Done." << endl << endl;
+  cout << "[RX] Done. Calling join_all() on transmit thread group." << endl;
+
+  transmit_thread.join_all();
+
+  cout << "[RX] transmit_thread.join_all() complete." << endl << endl;
 
   return EXIT_SUCCESS;
   
