@@ -385,7 +385,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     // check if someone wants to stop
     if (stop_signal_called) {
       recv_bar.wait();
+      cout << "[RX] recv_bar cleared" << endl;
       sent_bar.wait();
+      cout << "[RX] sent_bar cleared" << endl;
       break;
     }
 
@@ -452,6 +454,9 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
       // someone wants to stop, let's try to clean up first
       infile.close();
       sent_bar.wait();
+      cout << "[TX] sent_bar cleared" << endl;
+      recv_bar.wait();
+      cout << "[TX] recv_bar cleared" << endl;
       break;
     }
 
