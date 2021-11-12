@@ -88,7 +88,7 @@ double tr_off_delay; // Time before turning off GPIO
 size_t num_tx_samps; // Total samples to transmit per chirp
 size_t num_rx_samps; // Total samples to recieve per chirp
 
-// Error casese [TODO]
+// Error cases [TODO]
 bool error_state = false;
 
 /*
