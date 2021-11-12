@@ -8,11 +8,12 @@
 cmake_minimum_required(VERSION 3.5.1)
 project(INIT_USRP CXX)
 
-set(CMAKE_LIBRARY_PATH "/home/thomas/apps/miniconda3/envs/uhd/lib")
-set(CMAKE_INCLUDE_PATH "/home/thomas/apps/miniconda3/envs/uhd/include")
+message(STATUS "conda prefix: $ENV{CONDA_PREFIX}")
+set(CMAKE_LIBRARY_PATH "$ENV{CONDA_PREFIX}/lib")
+set(CMAKE_INCLUDE_PATH "$ENV{CONDA_PREFIX}/include")
 
 ### Configure Compiler ########################################################
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" AND ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
     set(CMAKE_EXE_LINKER_FLAGS "-lthr ${CMAKE_EXE_LINKER_FLAGS}")
@@ -52,7 +53,7 @@ include_directories(
 link_directories(${Boost_LIBRARY_DIRS})
 
 ### Make the executable #######################################################
-add_executable(radar coherent.cpp)
+add_executable(radar main.cpp rf_settings.cpp rf_settings.hpp utils.cpp utils.hpp)
 
 set(CMAKE_BUILD_TYPE "Release")
 
