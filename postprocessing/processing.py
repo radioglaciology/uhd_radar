@@ -55,17 +55,17 @@ def plotSigVsSample (signal, title):
 # in a match-filtered rx signal. 
 # -----
 # correl_sig   - the match-filtered signal to examine (complex)
-# direct_start - start search for direct path peak at this sample (sample)
+# internal_start - start search for internal path peak at this sample (sample)
 # describe     - whether to include a text description as code executes
-def findDirectPath (correl_sig, direct_start, describe=True):
+def findInternalPath (correl_sig, internal_start, describe=True):
     "Find the direct path peak of a cross-correlated signal."
     
-    if (describe): print("--- Searching for direct path peak ---")
-    if (describe): print("\tStarting search for direct path peak at sample %d." % direct_start)
-    relevant_dir = correl_sig[direct_start:]
-    dir_peak = np.argmax(np.absolute(relevant_dir)) + direct_start
-    if (describe): print("\tThe direct path peak was found at sample %d with value %f." % (dir_peak, np.abs(correl_sig[dir_peak])))
-    return dir_peak
+    if (describe): print("--- Searching for internal path peak ---")
+    if (describe): print("\tStarting search for internal path peak at sample %d." % internal_start)
+    relevant_intrnl = correl_sig[internal_start:]
+    intrnl_peak = np.argmax(np.absolute(relevant_intrnl)) + internal_start
+    if (describe): print("\tThe internal path peak was found at sample %d with value %f." % (intrnl_peak, np.abs(correl_sig[intrnl_peak])))
+    return intrnl_peak
 
 # This function returns strongest echo peak in a match-filtered rx signal
 # and the estimated distance to the reflector. Searching is conducted by 
@@ -73,16 +73,16 @@ def findDirectPath (correl_sig, direct_start, describe=True):
 # -----
 # correl_sig  - the match-filtered signal to examine
 # sample_rate - the sampling rate of the signal (s/s)
-# dir_peak    - the location of the direct path peak (sample)
+# itrnl_peak    - the location of the internal path peak (sample)
 # echo_start  - start search for echo peak this number of samples past dir_peak
 # sig_speed   - the speed of the signal through the medium (eg. 3e8) (m/s)
 # describe    - whether to include a text description as code executes
-def findEcho (correl_sig, sample_rate, dir_peak, echo_start, sig_speed, describe=True):
+def findEcho (correl_sig, sample_rate, itrnl_peak, echo_start, sig_speed, describe=True):
     "Find strongest echo in a correlated signal starting 'echo_start' samples past the direct path peak."
     if (describe): print("--- Searching for echo peak based on sample ---")
-    if (describe): print("\tStarting search for echo peak at sample %d." % (dir_peak + echo_start))
-    relevant_ech_s = correl_sig[(dir_peak + echo_start):]         
-    echo_peak = np.argmax(relevant_ech_s) + dir_peak + echo_start
+    if (describe): print("\tStarting search for echo peak at sample %d." % (itrnl_peak + echo_start))
+    relevant_ech_s = correl_sig[(itrnl_peak + echo_start):]         
+    echo_peak = np.argmax(relevant_ech_s) + itrnl_peak + echo_start
     if (describe): print("\tThe strongest echo peak was found at sample %d with value %f." % (echo_peak, correl_sig[echo_peak]))
     
     # Now calculate echo distance (assuming direct path occurs at time 0)

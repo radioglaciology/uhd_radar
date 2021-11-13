@@ -9,12 +9,12 @@ from ruamel.yaml import YAML as ym
 
 # Initialize constants
 yaml = ym(typ='safe')                 # Always use safe load if not dumping
-with open('../config/default.yaml') as stream:
+with open('config/default.yaml') as stream:
     config = yaml.load(stream)
     wind_params = config["WINDOW"]
     sample_rate = wind_params["sample_rate"]
     window_type = wind_params["window_type"]
-    orig_chirp = "../" + wind_params["orig_chirp"]
+    orig_chirp = wind_params["orig_chirp"]
     amp_one = wind_params["amp_one"]
     amp_two = wind_params["amp_two"]
     delay = wind_params["delay"]
@@ -57,12 +57,12 @@ xcorr_lb = sp.correlate(loopback, tx_sig, mode='valid', method='auto')
 n_lb_samps = int(np.shape(loopback)[0])
 if (show_graphs): pr.plotSigVsTime(loopback, 'Actual Loopback', sample_rate)
 
-# Find direct path peak, for creating simulated signals
-dir_peak = pr.findDirectPath(xcorr_lb, 10)  # Hard-code but 10 will always be fine...
+# Find internal path peak, for creating simulated signals
+# internal_peak = pr.findInternalPath(xcorr_lb, 10)  # Hard-code but 10 will always be fine...
 
 # Create a simulated loopback signal
-#sim_normal = pr.simulateRealistic(tx_sig, dir_peak, n_lb_samps, noise_std, sample_rate, amp_one, amp_two, delay, False)
-#sim_window = pr.simulateRealistic(tx_sig_w, dir_peak, n_lb_samps, noise_std, sample_rate, amp_one, amp_two, delay, True, window_type)
+# sim_normal = pr.simulateRealistic(tx_sig, dir_peak, n_lb_samps, noise_std, sample_rate, amp_one, amp_two, delay, False)
+# sim_window = pr.simulateRealistic(tx_sig_w, dir_peak, n_lb_samps, noise_std, sample_rate, amp_one, amp_two, delay, True, window_type)
 
 sim_normal = pr.simulateCentered(tx_sig, noise_std, sample_rate, amp_one, amp_two, delay, False)
 sim_window = pr.simulateCentered(tx_sig_w, noise_std, sample_rate, amp_one, amp_two, delay, True, window_type)

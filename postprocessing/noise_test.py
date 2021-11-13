@@ -13,16 +13,16 @@ from ruamel.yaml import YAML as ym
 
 # Initialize constants
 yaml = ym(typ='safe')                 # Always use safe load if not dumping
-with open("../config/default.yaml") as stream:
+with open("config/default.yaml") as stream:
     config = yaml.load(stream)
     noise_params = config["NOISE"]
     sample_rate = noise_params["sample_rate"]
-    rx_samps = "../" + noise_params["rx_samps"]
-    orig_chirp = "../" + noise_params["orig_chirp"]
+    rx_samps = noise_params["rx_samps"]
+    orig_chirp = noise_params["orig_chirp"]
     noise_std = noise_params["noise_std"]
     pulses = noise_params["num_pulses"]
     presums = noise_params["num_presums"]
-    direct_start = noise_params["direct_start"]
+    internal_start = noise_params["internal_start"]
     show_graphs = noise_params["show_graphs"]
     describe = noise_params["describe"]
     
@@ -31,7 +31,7 @@ coh_sums = math.ceil(pulses/presums)   # If I understand what main.cpp is doing
 print("--- Loaded constants from config.yaml ---")
     
 # Open received data
-print("--- Opening data and determining direct path peak for first signal---")
+print("--- Opening data and determining internal path peak for first signal---")
 rx_sig = pr.extractSig(rx_samps)
 #rx_sig = np.divide(rx_sig, presums)
 n_rx_samps = int(np.shape(rx_sig)[0])
@@ -46,7 +46,7 @@ if (show_graphs): pr.plotSigVsTime(tx_sig, 'Original Chirp', sample_rate)
 samps_per = int(n_rx_samps / coh_sums)
 rx_ideal = rx_sig[0:samps_per]
 xcorr_ideal = np.abs(sp.correlate(rx_ideal, tx_sig, mode='valid', method='auto'))
-dir_peak = pr.findDirectPath(xcorr_ideal, direct_start, describe)
+internal_peak = pr.findInternalPath(xcorr_ideal, internal_start, describe)
 
 if (show_graphs): pr.plotSigVsTime(rx_ideal, "'Ideal' Signal", sample_rate)
 
@@ -68,11 +68,11 @@ total = np.zeros(samps_per, dtype=np.csingle)
 snrs = np.zeros(coh_sums)
 for sig in signals:
     
-    # Match filter signal & determine direct path peak to ensure alignment with ideal signal
+    # Match filter signal & determine internal path peak to ensure alignment with ideal signal
     if (describe): print("\n--- Beginning Processing of Signal %d ---" % count)
     xcorr_sig = np.abs(sp.correlate(sig, tx_sig, mode='valid', method='auto'))
         
-    aligned = (dir_peak == pr.findDirectPath(xcorr_sig, direct_start, describe))
+    aligned = (internal_peak == pr.findInternalPath(xcorr_sig, internal_start, describe))
     if (describe): print("\tIs Signal %d aligned with the first? %r" % (count, aligned))
     if (not aligned):
         if describe: print("--- Skipping signal %d due to poor alignment with first signal ---", count)
