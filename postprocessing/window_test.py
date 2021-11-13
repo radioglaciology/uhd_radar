@@ -9,12 +9,12 @@ from ruamel.yaml import YAML as ym
 
 # Initialize constants
 yaml = ym(typ='safe')                 # Always use safe load if not dumping
-with open('config.yaml') as stream:
+with open('../config/default.yaml') as stream:
     config = yaml.load(stream)
     wind_params = config["WINDOW"]
     sample_rate = wind_params["sample_rate"]
     window_type = wind_params["window_type"]
-    orig_chirp = wind_params["orig_chirp"]
+    orig_chirp = "../" + wind_params["orig_chirp"]
     amp_one = wind_params["amp_one"]
     amp_two = wind_params["amp_two"]
     delay = wind_params["delay"]
