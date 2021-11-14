@@ -59,17 +59,18 @@ PLOT:
     orig_chirp: *ch_sent           # Chirp associated with receive data
     sample_rate: *s_rate
     sig_speed: 3e8                 # Speed of signal through medium [m/s]
-    direct_start: &dir_start 20    # Start search for direct path @ this sample
+    internal_start: &int_start 20    # Start search for internal path @ this sample
     echo_start: 10                 # Start search for echo @ this # of samps. after direct path
 
 # --------------------------- Noise Test -----------------------------#
 NOISE:
-    rx_samps: *save_loc         # Receive data to use
+    rx_samps: *save_loc        # Receive data to use
     orig_chirp: *ch_sent        # Chirp associated with receive data
     sample_rate: *s_rate
     noise_std: 6                # Standard deviation for white noise generation
-    #coherent_sums: *coh_sums    # Number of sums to eliminate noise.
-    direct_start: *dir_start    # Sample at which to start search for direct path
+    num_pulses: *num_pulses
+    num_presums: *num_presums
+    internal_start: *int_start    # Sample at which to start search for direct path
     show_graphs: False          # For debugging
     describe: False             # For debugging
 
