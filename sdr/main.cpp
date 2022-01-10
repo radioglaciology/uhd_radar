@@ -63,9 +63,12 @@ string tx_channels;
 string rx_channels;
 
 // GPIO
-string gpio;
-int num_bits;
-uint32_t gpio_mask = (1 << num_bits) - 1;
+int pwr_amp_pin;
+uint32_t AMP_GPIO_MASK;
+uint32_t ATR_MASKS;
+uint32_t ATR_CONTROL;
+uint32_t GPIO_DDR;
+//uint32_t gpio_mask = (1 << num_bits) - 1;
 
 // RF1
 double rx_rate;
@@ -127,9 +130,16 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   rx_channels = dev_params["rx_channels"].as<string>();
 
   YAML::Node gpio_params = config["GPIO"];
-  gpio = gpio_params["gpio"].as<string>();
-  num_bits = gpio_params["num_bits"].as<int>();
-  gpio_mask = (1 << num_bits) - 1;
+  //gpio = gpio_params["gpio"].as<string>();
+  pwr_amp_pin = gpio_params["pwr_amp_pin"].as<int>();
+  //gpio_mask = (1 << num_bits) - 1;
+  if (pwr_amp_pin != 0) {
+    //#define AMP_GPIO_MASK   (1 << 6)
+    AMP_GPIO_MASK = (1 << pwr_amp_pin);
+    ATR_MASKS = (AMP_GPIO_MASK);
+    ATR_CONTROL = (AMP_GPIO_MASK);
+    GPIO_DDR = (AMP_GPIO_MASK);
+  }
 
   YAML::Node rf0 = config["RF0"];
   YAML::Node rf1 = config["RF1"];
@@ -182,6 +192,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   }
   if (config["GENERATE"]["chirp_length"].as<double>() > tx_duration){
     cout << "WARNING: TX duration is shorter than chirp duration.\n";
+  }
+  if (config["CHIRP"]["rx_duration"].as<double>() > tx_duration) {
+    cout << "WARNING: RX duration is shorter than TX duration.\n";
   }
   
   /*** SETUP USRP ***/
@@ -275,10 +288,26 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     }
   }
 
-  // update the offset time for start of streaming to be offset from the current usrp time
-  time_offset = time_offset + time_spec_t(usrp->get_time_now()).get_real_secs();
-
   /*** SETUP GPIO ***/
+  std::cout << "Available GPIO banks: " << std::endl;
+  auto banks = usrp->get_gpio_banks(0);
+  for (auto& bank : banks) {
+      std::cout << "* " << bank << std::endl;
+  }
+
+  // basic ATR setup
+  usrp->set_gpio_attr("FP0", "CTRL", ATR_CONTROL, ATR_MASKS);
+  usrp->set_gpio_attr("FP0", "DDR", GPIO_DDR, ATR_MASKS);
+
+  // set amp output pin as desired (on only when TX)
+  /*usrp->set_gpio_attr("FP0", "ATR_0X", 0, AMP_GPIO_MASK);
+  usrp->set_gpio_attr("FP0", "ATR_RX", 0, AMP_GPIO_MASK);
+  usrp->set_gpio_attr("FP0", "ATR_TX", AMP_GPIO_MASK, AMP_GPIO_MASK);
+  usrp->set_gpio_attr("FP0", "ATR_XX", 0, AMP_GPIO_MASK);*/
+
+  // manually set pin high for testing
+  usrp->set_gpio_attr("FP0", "OUT", 1, AMP_GPIO_MASK);
+
 #ifdef USE_GPIO
   //set data direction register (DDR)
   usrp->set_gpio_attr(gpio, "DDR", 0xff, gpio_mask);
@@ -290,6 +319,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   usrp->set_gpio_attr(gpio, "OUT", 0x00, gpio_mask);
 #endif
   
+  // update the offset time for start of streaming to be offset from the current usrp time
+  time_offset = time_offset + time_spec_t(usrp->get_time_now()).get_real_secs();
+
   /*** SPAWN THE TX THREAD ***/
   boost::thread_group transmit_thread;
   transmit_thread.create_thread(boost::bind(&transmit_worker, usrp, tx_channel_nums));

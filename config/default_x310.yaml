@@ -19,8 +19,7 @@ DEVICE:
     tx_channels: "0"
     rx_channels: "0"
 GPIO:
-    gpio: "aFP0"
-    num_bits: 8
+    pwr_amp_pin: "6"     # which GPIO pin to use for external power amplifier control (set to 0 if not using)
 RF0:                     # parameters for first RF channel
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
@@ -45,13 +44,13 @@ CHIRP:
     rx_duration: 60e-6   # Receive duration [s]
     tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
-    pulse_rep_int: 5e-3 # Chirp period [s]
+    pulse_rep_int: 1e-3 # Chirp period [s]
     tx_lead: 0e-6       # Time between start of TX and RX[s]
-    num_pulses: &num_pulses 1000        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
+    num_pulses: &num_pulses -1        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
     num_presums: &num_presums 1         # No. of chirps to (coherently) presum onboard (must be at least 1)
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "data/20221110_1212.dat"  # Save rx data here
+    save_loc: &save_loc "data/rx_sandbox.dat"  # Save rx data here
     
 # -------------------------- Plot Samples --------------------------- #
 PLOT:
