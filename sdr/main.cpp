@@ -21,6 +21,14 @@
 #include "utils.hpp"
 
 //#define USE_GPIO
+#define AMP_GPIO_MASK (1 << 6)
+#define MAN_GPIO_MASK   (1 << 4)
+#define ATR_MASKS       (AMP_GPIO_MASK | MAN_GPIO_MASK)
+// set up our values for ATR control: 1 for ATR, 0 for manual
+#define ATR_CONTROL     (AMP_GPIO_MASK)
+// set up the GPIO directions: 1 for output, 0 for input
+#define GPIO_DDR        (AMP_GPIO_MASK | MAN_GPIO_MASK)
+
 
 using namespace std;
 using namespace uhd;
@@ -64,10 +72,11 @@ string rx_channels;
 
 // GPIO
 int pwr_amp_pin;
-uint32_t AMP_GPIO_MASK;
+/*uint32_t AMP_GPIO_MASK;
+uint32_t MAN_GPIO_MASK;
 uint32_t ATR_MASKS;
 uint32_t ATR_CONTROL;
-uint32_t GPIO_DDR;
+uint32_t GPIO_DDR;*/
 //uint32_t gpio_mask = (1 << num_bits) - 1;
 
 // RF1
@@ -135,11 +144,15 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   //gpio_mask = (1 << num_bits) - 1;
   if (pwr_amp_pin != 0) {
     //#define AMP_GPIO_MASK   (1 << 6)
-    AMP_GPIO_MASK = (1 << pwr_amp_pin);
+    /*AMP_GPIO_MASK = (1 << pwr_amp_pin);
+    MAN_GPIO_MASK = (1 << 4);
     ATR_MASKS = (AMP_GPIO_MASK);
-    ATR_CONTROL = (AMP_GPIO_MASK);
-    GPIO_DDR = (AMP_GPIO_MASK);
+    ATR_CONTROL = ~(AMP_GPIO_MASK);
+    GPIO_DDR = (AMP_GPIO_MASK);*/
   }
+  constexpr std::uint8_t mask6{ 0b0100'0000 }; // represents bit 6
+  std::cout << "bit 6 is " << ((AMP_GPIO_MASK & mask6) ? "on\n" : "off\n");
+  cout << "ATR_CONTROL for bit 6 is " << ((ATR_CONTROL & mask6) ? "on\n" : "off\n");
 
   YAML::Node rf0 = config["RF0"];
   YAML::Node rf1 = config["RF1"];
@@ -193,7 +206,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   if (config["GENERATE"]["chirp_length"].as<double>() > tx_duration){
     cout << "WARNING: TX duration is shorter than chirp duration.\n";
   }
-  if (config["CHIRP"]["rx_duration"].as<double>() > tx_duration) {
+  if (config["CHIRP"]["rx_duration"].as<double>() < tx_duration) {
     cout << "WARNING: RX duration is shorter than TX duration.\n";
   }
   
@@ -296,8 +309,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   }
 
   // basic ATR setup
-  usrp->set_gpio_attr("FP0", "CTRL", ATR_CONTROL, ATR_MASKS);
-  usrp->set_gpio_attr("FP0", "DDR", GPIO_DDR, ATR_MASKS);
+  //usrp->set_gpio_attr("FP0", "CTRL", ATR_CONTROL, ATR_MASKS);
+  //usrp->set_gpio_attr("FP0", "DDR", GPIO_DDR, ATR_MASKS);
 
   // set amp output pin as desired (on only when TX)
   /*usrp->set_gpio_attr("FP0", "ATR_0X", 0, AMP_GPIO_MASK);
@@ -306,7 +319,21 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   usrp->set_gpio_attr("FP0", "ATR_XX", 0, AMP_GPIO_MASK);*/
 
   // manually set pin high for testing
-  usrp->set_gpio_attr("FP0", "OUT", 1, AMP_GPIO_MASK);
+  //usrp->set_gpio_attr("FP0", "OUT", 1, AMP_GPIO_MASK);
+
+  // let's manually set GPIO4 high
+  /*usrp->set_gpio_attr("FP0", "OUT", 1, MAN_GPIO_MASK);
+  // finally, let's set up GPIO6 as we described above
+  usrp->set_gpio_attr("FP0", "ATR_0X", 0, AMP_GPIO_MASK);
+  usrp->set_gpio_attr("FP0", "ATR_RX", 0, AMP_GPIO_MASK);
+  usrp->set_gpio_attr("FP0", "ATR_TX", AMP_GPIO_MASK, AMP_GPIO_MASK);
+  // usually, you would want to also make this pin go high when doing
+  // full-duplex, but not in this example
+  usrp->set_gpio_attr("FP0", "ATR_XX", 0, AMP_GPIO_MASK);*/
+
+  usrp->set_gpio_attr("FP0", "CTRL", 0x00, 0xff);
+  usrp->set_gpio_attr("FP0", "DDR", 0xff, 0xff);
+  usrp->set_gpio_attr("FP0", "OUT", 0xff, 0xff); 
 
 #ifdef USE_GPIO
   //set data direction register (DDR)
