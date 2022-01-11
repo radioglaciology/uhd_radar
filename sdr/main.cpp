@@ -21,14 +21,6 @@
 #include "utils.hpp"
 
 //#define USE_GPIO
-/*#define AMP_GPIO_MASK (1 << 6)
-#define MAN_GPIO_MASK   (1 << 4)
-#define ATR_MASKS       (AMP_GPIO_MASK | MAN_GPIO_MASK)
-// set up our values for ATR control: 1 for ATR, 0 for manual
-#define ATR_CONTROL     (AMP_GPIO_MASK)
-// set up the GPIO directions: 1 for output, 0 for input
-#define GPIO_DDR        (AMP_GPIO_MASK | MAN_GPIO_MASK)*/
-
 
 using namespace std;
 using namespace uhd;
@@ -72,8 +64,8 @@ string rx_channels;
 
 // GPIO
 int pwr_amp_pin;
+string gpio_bank;
 uint32_t AMP_GPIO_MASK;
-uint32_t MAN_GPIO_MASK;
 uint32_t ATR_MASKS;
 uint32_t ATR_CONTROL;
 uint32_t GPIO_DDR;
@@ -139,13 +131,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   rx_channels = dev_params["rx_channels"].as<string>();
 
   YAML::Node gpio_params = config["GPIO"];
-  //gpio = gpio_params["gpio"].as<string>();
+  gpio_bank = gpio_params["gpio_bank"].as<string>();
   pwr_amp_pin = gpio_params["pwr_amp_pin"].as<int>();
-  //gpio_mask = (1 << num_bits) - 1;
-  if (pwr_amp_pin != 0) {
-    //#define AMP_GPIO_MASK   (1 << 6)
+  pwr_amp_pin -= 2; // map the specified DB15 pin to the GPIO pin numbering
+  if (pwr_amp_pin != -1) {
     AMP_GPIO_MASK = (1 << pwr_amp_pin);
-    MAN_GPIO_MASK = (1 << 4);
     ATR_MASKS = (AMP_GPIO_MASK);
     ATR_CONTROL = (AMP_GPIO_MASK);
     GPIO_DDR = (AMP_GPIO_MASK);
@@ -302,40 +292,25 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   }
 
   /*** SETUP GPIO ***/
-  std::cout << "Available GPIO banks: " << std::endl;
+  cout << "Available GPIO banks: " << std::endl;
   auto banks = usrp->get_gpio_banks(0);
   for (auto& bank : banks) {
-      std::cout << "* " << bank << std::endl;
+      cout << "* " << bank << std::endl;
   }
 
   // basic ATR setup
-  usrp->set_gpio_attr("FP0", "CTRL", ATR_CONTROL, ATR_MASKS);
-  usrp->set_gpio_attr("FP0", "DDR", GPIO_DDR, ATR_MASKS);
+  if (pwr_amp_pin != -1) {
+    usrp->set_gpio_attr(gpio_bank, "CTRL", ATR_CONTROL, ATR_MASKS);
+    usrp->set_gpio_attr(gpio_bank, "DDR", GPIO_DDR, ATR_MASKS);
 
-  // set amp output pin as desired (on only when TX)
-  usrp->set_gpio_attr("FP0", "ATR_0X", 0, AMP_GPIO_MASK);
-  usrp->set_gpio_attr("FP0", "ATR_RX", 0, AMP_GPIO_MASK);
-  usrp->set_gpio_attr("FP0", "ATR_TX", 0, AMP_GPIO_MASK);
-  usrp->set_gpio_attr("FP0", "ATR_XX", AMP_GPIO_MASK, AMP_GPIO_MASK);
+    // set amp output pin as desired (on only when TX)
+    usrp->set_gpio_attr(gpio_bank, "ATR_0X", 0, AMP_GPIO_MASK);
+    usrp->set_gpio_attr(gpio_bank, "ATR_RX", 0, AMP_GPIO_MASK);
+    usrp->set_gpio_attr(gpio_bank, "ATR_TX", 0, AMP_GPIO_MASK);
+    usrp->set_gpio_attr(gpio_bank, "ATR_XX", AMP_GPIO_MASK, AMP_GPIO_MASK);
+  }
 
-  // manually set pin high for testing
-  //usrp->set_gpio_attr("FP0", "OUT", 1, AMP_GPIO_MASK);
-
-  // let's manually set GPIO4 high
-  /*usrp->set_gpio_attr("FP0", "OUT", 1, MAN_GPIO_MASK);
-  // finally, let's set up GPIO6 as we described above
-  usrp->set_gpio_attr("FP0", "ATR_0X", 0, AMP_GPIO_MASK);
-  usrp->set_gpio_attr("FP0", "ATR_RX", 0, AMP_GPIO_MASK);
-  usrp->set_gpio_attr("FP0", "ATR_TX", AMP_GPIO_MASK, AMP_GPIO_MASK);
-  // usually, you would want to also make this pin go high when doing
-  // full-duplex, but not in this example
-  usrp->set_gpio_attr("FP0", "ATR_XX", 0, AMP_GPIO_MASK);*/
-
-  //usrp->set_gpio_attr("FP0", "CTRL", 0x00, AMP_GPIO_MASK);
-  //usrp->set_gpio_attr("FP0", "DDR", 0xff, AMP_GPIO_MASK);
-  //usrp->set_gpio_attr("FP0", "OUT", 0xff, AMP_GPIO_MASK); 
-
-  cout << "AMP_GPIO_MASK: " << bitset<32>(AMP_GPIO_MASK) << endl;
+  //cout << "AMP_GPIO_MASK: " << bitset<32>(AMP_GPIO_MASK) << endl;
 
 #ifdef USE_GPIO
   //set data direction register (DDR)

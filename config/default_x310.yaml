@@ -19,7 +19,8 @@ DEVICE:
     tx_channels: "0"
     rx_channels: "0"
 GPIO:
-    pwr_amp_pin: "6"     # which GPIO pin to use for external power amplifier control (set to 0 if not using)
+    gpio_bank: "FP0"     # which GPIO bank to use (FP0 is front panel and default)
+    pwr_amp_pin: "8"     # which GPIO pin (on the DB15 connector) to use for external power amplifier control (set to -1 if not using)
 RF0:                     # parameters for first RF channel
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
