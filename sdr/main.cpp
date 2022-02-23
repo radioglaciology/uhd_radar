@@ -63,9 +63,13 @@ string tx_channels;
 string rx_channels;
 
 // GPIO
-string gpio;
-int num_bits;
-uint32_t gpio_mask = (1 << num_bits) - 1;
+int pwr_amp_pin;
+string gpio_bank;
+uint32_t AMP_GPIO_MASK;
+uint32_t ATR_MASKS;
+uint32_t ATR_CONTROL;
+uint32_t GPIO_DDR;
+//uint32_t gpio_mask = (1 << num_bits) - 1;
 
 // RF1
 double rx_rate;
@@ -127,9 +131,18 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   rx_channels = dev_params["rx_channels"].as<string>();
 
   YAML::Node gpio_params = config["GPIO"];
-  gpio = gpio_params["gpio"].as<string>();
-  num_bits = gpio_params["num_bits"].as<int>();
-  gpio_mask = (1 << num_bits) - 1;
+  gpio_bank = gpio_params["gpio_bank"].as<string>();
+  pwr_amp_pin = gpio_params["pwr_amp_pin"].as<int>();
+  pwr_amp_pin -= 2; // map the specified DB15 pin to the GPIO pin numbering
+  if (pwr_amp_pin != -1) {
+    AMP_GPIO_MASK = (1 << pwr_amp_pin);
+    ATR_MASKS = (AMP_GPIO_MASK);
+    ATR_CONTROL = (AMP_GPIO_MASK);
+    GPIO_DDR = (AMP_GPIO_MASK);
+  }
+  constexpr std::uint8_t mask6{ 0b0100'0000 }; // represents bit 6
+  std::cout << "bit 6 is " << ((AMP_GPIO_MASK & mask6) ? "on\n" : "off\n");
+  cout << "ATR_CONTROL for bit 6 is " << ((ATR_CONTROL & mask6) ? "on\n" : "off\n");
 
   YAML::Node rf0 = config["RF0"];
   YAML::Node rf1 = config["RF1"];
@@ -182,6 +195,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   }
   if (config["GENERATE"]["chirp_length"].as<double>() > tx_duration){
     cout << "WARNING: TX duration is shorter than chirp duration.\n";
+  }
+  if (config["CHIRP"]["rx_duration"].as<double>() < tx_duration) {
+    cout << "WARNING: RX duration is shorter than TX duration.\n";
   }
   
   /*** SETUP USRP ***/
@@ -275,10 +291,27 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     }
   }
 
-  // update the offset time for start of streaming to be offset from the current usrp time
-  time_offset = time_offset + time_spec_t(usrp->get_time_now()).get_real_secs();
-
   /*** SETUP GPIO ***/
+  cout << "Available GPIO banks: " << std::endl;
+  auto banks = usrp->get_gpio_banks(0);
+  for (auto& bank : banks) {
+      cout << "* " << bank << std::endl;
+  }
+
+  // basic ATR setup
+  if (pwr_amp_pin != -1) {
+    usrp->set_gpio_attr(gpio_bank, "CTRL", ATR_CONTROL, ATR_MASKS);
+    usrp->set_gpio_attr(gpio_bank, "DDR", GPIO_DDR, ATR_MASKS);
+
+    // set amp output pin as desired (on only when TX)
+    usrp->set_gpio_attr(gpio_bank, "ATR_0X", 0, AMP_GPIO_MASK);
+    usrp->set_gpio_attr(gpio_bank, "ATR_RX", 0, AMP_GPIO_MASK);
+    usrp->set_gpio_attr(gpio_bank, "ATR_TX", 0, AMP_GPIO_MASK);
+    usrp->set_gpio_attr(gpio_bank, "ATR_XX", AMP_GPIO_MASK, AMP_GPIO_MASK);
+  }
+
+  //cout << "AMP_GPIO_MASK: " << bitset<32>(AMP_GPIO_MASK) << endl;
+
 #ifdef USE_GPIO
   //set data direction register (DDR)
   usrp->set_gpio_attr(gpio, "DDR", 0xff, gpio_mask);
@@ -290,6 +323,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   usrp->set_gpio_attr(gpio, "OUT", 0x00, gpio_mask);
 #endif
   
+  // update the offset time for start of streaming to be offset from the current usrp time
+  time_offset = time_offset + time_spec_t(usrp->get_time_now()).get_real_secs();
+
   /*** SPAWN THE TX THREAD ***/
   boost::thread_group transmit_thread;
   transmit_thread.create_thread(boost::bind(&transmit_worker, usrp, tx_channel_nums));
