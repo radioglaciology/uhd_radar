@@ -9,12 +9,7 @@ import matplotlib.pyplot as plt
 # filename - the name of the bin file to open
 def extractSig (filename):
     sig_floats = np.fromfile(filename, dtype=np.float32, count=-1, sep='', offset=0)
-
-    n_samps = int(np.shape(sig_floats)[0]/2) # averaged chirp 
-    sig_comp = np.empty(n_samps, dtype=np.csingle);
-    for x in range (n_samps):
-        sig_comp[x] = np.csingle(complex(sig_floats[2*x], sig_floats[2*x+1]))
-    return sig_comp
+    return (sig_floats[::2] + (1j * sig_floats[1::2])).astype(np.csingle)
 
 # This function plots a TX or RX complex chirp in an Voltage vs. Time (ms) graph
 # -----
