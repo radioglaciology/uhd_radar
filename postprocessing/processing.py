@@ -22,13 +22,13 @@ def plotChirpVsTime (signal, title, sample_rate):
     rx_time = np.zeros(n_rx_samps)
     for x in range(n_rx_samps):
         rx_time[x] = x/sample_rate  
-    rx_time *= 1e6      # Convert from s to ms
+    rx_time *= 1e6      # Convert from s to us
         
     fig, axs = plt.subplots(2)
     fig.suptitle(title)
-    axs[0].set(xlabel='Time (ms)', ylabel='Real Voltage')
+    axs[0].set(xlabel='Time (us)', ylabel='Real')
     axs[0].plot(rx_time, np.real(signal))
-    axs[1].set(xlabel='Time (ms)', ylabel='Imaginary Voltage')
+    axs[1].set(xlabel='Time (us)', ylabel='Imaginary')
     axs[1].plot(rx_time, np.imag(signal))
     return
 
