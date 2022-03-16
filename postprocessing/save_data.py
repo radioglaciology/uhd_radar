@@ -8,22 +8,31 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from ruamel.yaml import YAML as ym
 
-# Check if a YAML file was provided as a command line argument
-parser = argparse.ArgumentParser()
-parser.add_argument("yaml_file", nargs='?', default='config/default.yaml',
-        help='Path to YAML configuration file')
-args = parser.parse_args()
+def save_data(yaml_filename, extra_files={}):
+    # Initialize Constants
+    yaml = ym()
+    with open(yaml_filename) as stream:
+        config = yaml.load(stream)
 
-# Initialize Constants
-yaml = ym()
-with open(args.yaml_file) as stream:
-    config = yaml.load(stream)
+    file_prefix = datetime.now().strftime("data/%Y%m%d_%H%M%S")
 
-file_prefix = datetime.now().strftime("data/%Y%m%d_%H%M%S")
+    print(f"Copying data to {file_prefix}...")
 
-print(f"Copying data to {file_prefix}...")
+    shutil.copy(yaml_filename, file_prefix + "_config.yaml")
+    shutil.copy(config['FILES']['save_loc'], file_prefix + "_rx_samps.bin")
 
-shutil.copy(args.yaml_file, file_prefix + "_config.yaml")
-shutil.copy(config['FILES']['save_loc'], file_prefix + "_rx_samps.bin")
+    for source_file, dest_tag in extra_files.items():
+        shutil.copy(source_file, file_prefix + "_" + dest_tag)
 
-print(f"File copying complete.")
+    print(f"File copying complete.")
+
+if __name__ == "__main__":
+    # Check if a YAML file was provided as a command line argument
+    parser = argparse.ArgumentParser()
+    parser.add_argument("yaml_file", nargs='?', default='config/default.yaml',
+            help='Path to YAML configuration file')
+    args = parser.parse_args()
+    yaml_filename = args.yaml_file
+
+    save_data(yaml_filename)
+
