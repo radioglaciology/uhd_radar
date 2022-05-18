@@ -31,7 +31,7 @@ def generate_chirp(config):
         ph = 2*np.pi*(-1*start_freq*end_freq*chirp_length/(end_freq-start_freq))*np.log(1- (end_freq-start_freq)*ts/(end_freq*chirp_length))
     else:
         ph = 2*np.pi*(start_freq*ts + (end_freq - start_freq) * ts**2 / (2*chirp_length))
-        print(f"[ERROR] Unrecognized chirp type '{chirp_type}'")
+        printf("[ERROR] Unrecognized chirp type '{chirp_type}'")
         return None, None
 
     chirp_complex = np.exp(1j*ph)
@@ -42,7 +42,7 @@ def generate_chirp(config):
     elif window == "hamming":
         chirp_complex = chirp_complex * np.hamming(chirp_complex.size)
     elif window != "rectangular":
-        print(f"[ERROR] Unrecognized window function '{window}'")
+        printf("[ERROR] Unrecognized window function '{window}'")
         return None, None
     
     return ts, chirp_complex
