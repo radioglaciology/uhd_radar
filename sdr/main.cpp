@@ -213,9 +213,86 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   usrp->set_clock_source(clk_ref);
   usrp->set_time_source(clk_ref);
 
-  // set the USRP time, let chill for a little bit to lock
-  usrp->set_time_next_pps(uhd::time_spec_t(0.0));
-  this_thread::sleep_for((chrono::milliseconds(1000)));
+  if (clk_ref == "gpsdo") {
+    // Check for 10 MHz lock
+    vector<string> sensor_names = usrp->get_mboard_sensor_names(0);
+    if (find(sensor_names.begin(), sensor_names.end(), "ref_locked")
+        != sensor_names.end()) {
+        cout << "Waiting for reference lock..." << flush;
+        bool ref_locked = false;
+        for (int i = 0; i < 30 and not ref_locked; i++) {
+            ref_locked = usrp->get_mboard_sensor("ref_locked", 0).to_bool();
+            if (not ref_locked) {
+                cout << "." << flush;
+                this_thread::sleep_for(chrono::seconds(1));
+            }
+        }
+        if (ref_locked) {
+            cout << "LOCKED" << endl;
+        } else {
+            cout << "FAILED" << endl;
+            cout << "Failed to lock to GPSDO 10 MHz Reference. Exiting."
+                      << endl;
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        cout << boost::format(
+            "ref_locked sensor not present on this board.\n");
+    }
+
+    // Wait for GPS lock
+    bool gps_locked = usrp->get_mboard_sensor("gps_locked", 0).to_bool();
+    size_t num_gps_locked = 0;
+    for (int i = 0; i < 30 and not gps_locked; i++) {
+      gps_locked = usrp->get_mboard_sensor("gps_locked", 0).to_bool();
+      if (not gps_locked) {
+          cout << "." << flush;
+          this_thread::sleep_for(chrono::seconds(1));
+      }
+    }
+    if (gps_locked) {
+        num_gps_locked++;
+        cout << boost::format("GPS Locked\n");
+    } else {
+        cerr
+            << "WARNING:  GPS not locked - time will not be accurate until locked"
+            << endl;
+    }
+
+    // Set to GPS time
+    time_spec_t gps_time = time_spec_t(
+        int64_t(usrp->get_mboard_sensor("gps_time", 0).to_int()));
+    usrp->set_time_next_pps(gps_time + 1.0, 0);
+
+    // Wait for it to apply
+    // The wait is 2 seconds because N-Series has a known issue where
+    // the time at the last PPS does not properly update at the PPS edge
+    // when the time is actually set.
+    this_thread::sleep_for(chrono::seconds(2));
+
+    // Check times
+    gps_time = time_spec_t(
+        int64_t(usrp->get_mboard_sensor("gps_time", 0).to_int()));
+    time_spec_t time_last_pps = usrp->get_time_last_pps(0);
+    cout << "USRP time: "
+              << (boost::format("%0.9f") % time_last_pps.get_real_secs())
+              << endl;
+    cout << "GPSDO time: "
+              << (boost::format("%0.9f") % gps_time.get_real_secs()) << std::endl;
+    if (gps_time.get_real_secs() == time_last_pps.get_real_secs())
+        cout << endl
+                  << "SUCCESS: USRP time synchronized to GPS time" << endl
+                  << endl;
+    else
+        std::cerr << endl
+                  << "ERROR: Failed to synchronize USRP time to GPS time"
+                  << endl
+                  << endl;
+  } else {
+    // set the USRP time, let chill for a little bit to lock
+    usrp->set_time_next_pps(time_spec_t(0.0));
+    this_thread::sleep_for((chrono::milliseconds(1000)));
+  }
 
   // always select the subdevice first, the channel mapping affects the
   // other settings
