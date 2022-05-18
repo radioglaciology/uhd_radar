@@ -9,12 +9,7 @@ import matplotlib.pyplot as plt
 # filename - the name of the bin file to open
 def extractSig (filename):
     sig_floats = np.fromfile(filename, dtype=np.float32, count=-1, sep='', offset=0)
-
-    n_samps = int(np.shape(sig_floats)[0]/2) # averaged chirp 
-    sig_comp = np.empty(n_samps, dtype=np.csingle);
-    for x in range (n_samps):
-        sig_comp[x] = np.csingle(complex(sig_floats[2*x], sig_floats[2*x+1]))
-    return sig_comp
+    return (sig_floats[::2] + (1j * sig_floats[1::2])).astype(np.csingle)
 
 # This function plots a TX or RX complex chirp in an Voltage vs. Time (ms) graph
 # -----
@@ -27,15 +22,15 @@ def plotChirpVsTime (signal, title, sample_rate):
     rx_time = np.zeros(n_rx_samps)
     for x in range(n_rx_samps):
         rx_time[x] = x/sample_rate  
-    rx_time *= 1e6      # Convert from s to ms
+    rx_time *= 1e6      # Convert from s to us
         
     fig, axs = plt.subplots(2)
     fig.suptitle(title)
-    axs[0].set(xlabel='Time (ms)', ylabel='Real Voltage')
+    axs[0].set(xlabel='Time (us)', ylabel='Real Voltage')
     axs[0].plot(rx_time, np.real(signal))
-    axs[1].set(xlabel='Time (ms)', ylabel='Imaginary Voltage')
+    axs[1].set(xlabel='Time (us)', ylabel='Imaginary Voltage')
     axs[1].plot(rx_time, np.imag(signal))
-    return
+    return axs
 
 # This function plots a TX or RX complex chirp in an Voltage vs. Sample graph.
 # -----
