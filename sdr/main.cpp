@@ -16,6 +16,7 @@
 #include <cstdlib>
 
 #include "yaml-cpp/yaml.h"
+#include "uv.h"
 
 #include "rf_settings.hpp"
 #include "utils.hpp"
@@ -36,6 +37,12 @@ void transmit_samples(tx_streamer::sptr& tx_stream,
   
 void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
     vector<complex<float>>& res);
+
+void on_open(uv_fs_t *req);
+
+void on_write(uv_fs_t *req);
+
+void on_close(uv_fs_t *req);
 
 /*
  * SIG INT HANDLER
@@ -407,6 +414,22 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   boost::thread_group transmit_thread;
   transmit_thread.create_thread(boost::bind(&transmit_worker, usrp, tx_channel_nums));
 
+  /*** FILE WRITE SETUP ***/
+  uv_fs_t open_req;
+  uv_fs_t write_req;
+  uv_fs_t close_req;
+  uv_buf_t uv_buffer;
+  uv_buf_t gps_buffer;  
+
+  string char_buffer = "blah\n";
+  uv_buffer = uv_buf_init((char*)char_buffer.c_str(), sizeof(char_buffer));
+
+  uv_loop_t *loop = uv_default_loop();
+
+  int uv_fd = uv_fs_open(loop, &open_req, "../../data/uv_gps_test.txt", O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU, on_open);
+  uv_run(loop, UV_RUN_DEFAULT);
+  
+
   /*** RX SETUP ***/
 
   // (TX setup happens in the TX thread)
@@ -417,7 +440,12 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // open file for writing rx samples
   ofstream outfile;
-  outfile.open("../../" + save_loc, ofstream::binary);
+  outfile.open("../../data/" + save_loc + ".dat", ofstream::binary);
+  ofstream gpsfile;
+  if (clk_ref == "gpsdo") {  
+    gpsfile.open("../../data/gps_" + save_loc + ".txt", ofstream::binary);
+    cout << "[HERE] gps file opened" << endl;
+  }
 
   // set up buffers for rx
   uhd::rx_metadata_t md;
@@ -435,6 +463,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   //for (int i = 0; i < num_pulses; i += num_presums) {
   int chirps_sent = 0;
+  string gps_data;
   while ((num_pulses < 0) || (chirps_sent < num_pulses)) {
 
     for (int m = 0; m < num_presums; m++) {
@@ -468,15 +497,27 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
       receive_samples(rx_stream, num_rx_samps, rx_sample);
 
+      // get gps data
+      if (clk_ref == "gpsdo") {
+        gps_data = usrp->get_mboard_sensor("gps_gprmc").to_pp_string();
+        cout << gps_data << endl;
+      }
+
       if (error_state) {
         cout << "Error occured. Trying to reset." << endl;
         error_count++;
+
+        if (clk_ref == "gpsdo") {
+          gpsfile << "!RF ERROR!";
+        }
 
         //time_offset = time_offset + 2*pulse_rep_int;
         error_state = false;
       }
 
       cout << "Received chirp " << chirps_sent << " [samples: " << num_rx_samps << "]" << endl;
+
+      //uv_fs_write(loop, &write_req, open_req.result, &uv_buffer, 1, -1, on_write);
 
       for (int n = 0; n < num_rx_samps; n++) {
         sample_sum[n] += rx_sample[n];
@@ -508,6 +549,18 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
         num_rx_samps * sizeof(complex<float>));
     }
 
+    // write gps string to file
+    if (clk_ref == "gpsdo") {
+      /*gpsfile.write(gps_data.c_str(), sizeof(char) * gps_data.size());
+      gpsfile.write("\n", sizeof(char));
+      cout << "[HERE] writing gps string" << endl;*/
+
+      cout << "gps data size: " << sizeof(gps_data) << endl;
+
+      gps_buffer = uv_buf_init((char*)gps_data.c_str(), sizeof(gps_data));
+      uv_fs_write(loop, &write_req, open_req.result, &gps_buffer, 1, -1, on_write);
+    }
+
     // clear the matrices holding the sums
     fill(sample_sum.begin(), sample_sum.end(), complex<float>(0,0));
   }
@@ -517,6 +570,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   cout << "[RX] Closing output file." << endl;
   outfile.close();
+  if (gpsfile.is_open()) {
+    gpsfile.close();
+  }
 
   cout << "[RX] Error count: " << error_count << endl;
   
@@ -525,6 +581,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   transmit_thread.join_all();
 
   cout << "[RX] transmit_thread.join_all() complete." << endl << endl;
+
+  //free(uv_buffer.base); 
+  this_thread::sleep_for(chrono::seconds(1));
+  uv_fs_close(loop, &close_req, open_req.result, on_close);
+  uv_loop_close(loop);
 
   return EXIT_SUCCESS;
   
@@ -683,4 +744,28 @@ void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
 
   if (num_acc_samps < num_rx_samps) cerr << "Receive timeout before all "
     "samples received..." << endl;
+}
+
+void on_open(uv_fs_t *req) {
+  if (req->result != -1) {
+    cout << "file opened!" << endl;
+  } else {
+    cout << "error opening file" << endl;
+  }
+}
+
+void on_write(uv_fs_t *req) {
+  if (req->result != 1) {
+    cout << "wrote to file!" << endl;
+  } else {
+    cout << "error writing to file" << endl;
+  }
+}
+
+void on_close(uv_fs_t *req) {
+  if (req->result != 1) {
+    cout << "file closed!" << endl;
+  } else {
+    cout << "error closing file" << endl;
+  }
 }

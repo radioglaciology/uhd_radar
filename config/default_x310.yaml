@@ -14,13 +14,13 @@ GENERATE:
 DEVICE:
     device_args: "addr=192.168.10.2,dboard_clock_rate=20e6"   # device address
     subdev: "A:0 B:0"
-    clk_ref: "gpsdo"
+    clk_ref: "gpsdo"     # gpsdo, internal (default), or external
     clk_rate: 200e6      # Clock Rate [Hz]
     tx_channels: "0"
     rx_channels: "0"
 GPIO:
     gpio_bank: "FP0"     # which GPIO bank to use (FP0 is front panel and default)
-    pwr_amp_pin: "8"     # which GPIO pin (on the DB15 connector) to use for external power amplifier control (set to -1 if not using)
+    pwr_amp_pin: "-1"     # which GPIO pin (on the DB15 connector) to use for external power amplifier control (set to -1 if not using), (normally 8)
 RF0:                     # parameters for first RF channel
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
@@ -45,13 +45,13 @@ CHIRP:
     rx_duration: 100e-6   # Receive duration [s]
     tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
-    pulse_rep_int: 2e-3 # Chirp period [s]
+    pulse_rep_int: 1500e-3 # Chirp period [s]
     tx_lead: 0e-6       # Time between start of TX and RX[s]
-    num_pulses: &num_pulses 50        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
+    num_pulses: &num_pulses 1        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
     num_presums: &num_presums 1         # No. of chirps to (coherently) presum onboard (must be at least 1)
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "data/rx_sandbox.dat"  # Save rx data here
+    save_loc: &save_loc "rx_sandbox"  # Save rx data here (no file extension)
     
 # -------------------------- Plot Samples --------------------------- #
 PLOT:
