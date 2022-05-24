@@ -14,6 +14,9 @@
 #include <complex>
 #include <thread>
 #include <cstdlib>
+#include <boost/asio/io_service.hpp>
+#include <boost/asio/posix/stream_descriptor.hpp>
+#include <boost/asio/write.hpp>
 
 #include "yaml-cpp/yaml.h"
 #include "uv.h"
@@ -421,14 +424,30 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   uv_buf_t uv_buffer;
   uv_buf_t gps_buffer;  
 
-  string char_buffer = "blah\n";
+  string char_buffer = "GPS_GPRMC: $GPRMC,184009.00,A,3725.6025,N,12210.3750,W,0.0,0.0,240522,,*25\n";
   uv_buffer = uv_buf_init((char*)char_buffer.c_str(), sizeof(char_buffer));
 
   uv_loop_t *loop = uv_default_loop();
 
   int uv_fd = uv_fs_open(loop, &open_req, "../../data/uv_gps_test.txt", O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU, on_open);
-  uv_run(loop, UV_RUN_DEFAULT);
-  
+  uv_run(loop, UV_RUN_DEFAULT);  
+
+
+  boost::asio::io_service ioservice;
+
+  string path = "../../data/boost_gps.txt"; 
+  int dev = open(path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+  if (dev == -1) {
+      throw std::runtime_error("failed to open device " + path);
+  }
+
+  //boost::asio::posix::stream_descriptor stream{ioservice, STDOUT_FILENO};
+  boost::asio::posix::stream_descriptor stream{ioservice, dev};
+  auto handler = [](const boost::system::error_code&, std::size_t) {
+    std::cout << ", world!\n";
+  };
+
+  ioservice.run();
 
   /*** RX SETUP ***/
 
@@ -556,15 +575,19 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       cout << "[HERE] writing gps string" << endl;*/
 
       cout << "gps data size: " << sizeof(gps_data) << endl;
+      boost::asio::async_write(stream, boost::asio::buffer(gps_data + "\n"), handler);
 
       gps_buffer = uv_buf_init((char*)gps_data.c_str(), sizeof(gps_data));
-      uv_fs_write(loop, &write_req, open_req.result, &gps_buffer, 1, -1, on_write);
+      //uv_fs_write(loop, &write_req, open_req.result, &gps_buffer, 1, -1, on_write);
     }
 
     // clear the matrices holding the sums
     fill(sample_sum.begin(), sample_sum.end(), complex<float>(0,0));
   }
 
+  int uv_write = uv_fs_write(loop, &write_req, open_req.result, &uv_buffer, 1, -1, on_write);
+  //cout << "UV WRITE STATUS: " << uv_strerror(uv_write) << endl;
+  //this_thread::sleep_for(chrono::seconds(1));
 
   /*** WRAP UP ***/
 
@@ -583,9 +606,16 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   cout << "[RX] transmit_thread.join_all() complete." << endl << endl;
 
   //free(uv_buffer.base); 
-  this_thread::sleep_for(chrono::seconds(1));
-  uv_fs_close(loop, &close_req, open_req.result, on_close);
-  uv_loop_close(loop);
+  //this_thread::sleep_for(chrono::seconds(1));
+  uv_fs_close(loop, &close_req, open_req.result, NULL);
+  uv_fs_req_cleanup(&open_req);
+ // uv_fs_req_cleanup(&_req);
+  uv_fs_req_cleanup(&write_req);
+  int loop_status = uv_loop_close(loop);
+  /*while (loop_status == UV_EBUSY) {
+    cout << "uv loop not done, wait a little bit" << endl;
+    loop_status = uv_loop_close(loop);
+  }*/
 
   return EXIT_SUCCESS;
   
@@ -755,7 +785,8 @@ void on_open(uv_fs_t *req) {
 }
 
 void on_write(uv_fs_t *req) {
-  if (req->result != 1) {
+  cout << "in write callback" << endl;
+  if (req->result >= 0) {
     cout << "wrote to file!" << endl;
   } else {
     cout << "error writing to file" << endl;
