@@ -418,7 +418,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   transmit_thread.create_thread(boost::bind(&transmit_worker, usrp, tx_channel_nums));
 
   /*** FILE WRITE SETUP ***/
-  uv_fs_t open_req;
+  /*uv_fs_t open_req;
   uv_fs_t write_req;
   uv_fs_t close_req;
   uv_buf_t uv_buffer;
@@ -430,21 +430,35 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   uv_loop_t *loop = uv_default_loop();
 
   int uv_fd = uv_fs_open(loop, &open_req, "../../data/uv_gps_test.txt", O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU, on_open);
-  uv_run(loop, UV_RUN_DEFAULT);  
-
+  uv_run(loop, UV_RUN_DEFAULT);  */
 
   boost::asio::io_service ioservice;
 
-  string path = "../../data/boost_gps.txt"; 
-  int dev = open(path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
-  if (dev == -1) {
-      throw std::runtime_error("failed to open device " + path);
+  string gps_path = "../../data/" + save_loc + "_gps.txt"; 
+  int gps_file = open(gps_path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+  if (gps_file == -1) {
+      throw std::runtime_error("Failed to open GPS file: " + gps_path);
+  }
+
+  string rf_path = "../../data/" + save_loc + "_rx_samps.dat";
+  int rf_file = open(rf_path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+  if (rf_file == -1) {
+    throw std::runtime_error("Failed to open RF file: " + rf_path);
   }
 
   //boost::asio::posix::stream_descriptor stream{ioservice, STDOUT_FILENO};
-  boost::asio::posix::stream_descriptor stream{ioservice, dev};
-  auto handler = [](const boost::system::error_code&, std::size_t) {
-    std::cout << ", world!\n";
+  boost::asio::posix::stream_descriptor gps_stream{ioservice, gps_file};
+  auto gps_asio_handler = [](const boost::system::error_code& ec, std::size_t) {
+    if (ec.value() != 0) {
+      cout << "GPS write error: " << ec.message() << endl;
+    }
+  };
+
+  boost::asio::posix::stream_descriptor rf_stream{ioservice, rf_file};
+  auto rf_asio_handler = [](const boost::system::error_code& ec, size_t) {
+    if (ec.value() != 0) {
+      cout << "RF write error: " << ec.message() << endl;
+    }
   };
 
   ioservice.run();
@@ -458,13 +472,13 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   rx_streamer::sptr rx_stream = usrp->get_rx_stream(stream_args);
 
   // open file for writing rx samples
-  ofstream outfile;
+  /*ofstream outfile;
   outfile.open("../../data/" + save_loc + ".dat", ofstream::binary);
   ofstream gpsfile;
   if (clk_ref == "gpsdo") {  
     gpsfile.open("../../data/gps_" + save_loc + ".txt", ofstream::binary);
     cout << "[HERE] gps file opened" << endl;
-  }
+  }*/
 
   // set up buffers for rx
   uhd::rx_metadata_t md;
@@ -510,7 +524,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       stream_cmd.time_spec = time_spec_t(rx_time);
 
       time_ms = time_spec_t(rx_time).get_real_secs() * 1000.0;
-      cout << boost::format("Scheduling chirp %d RX for %0.3f ms\n") % (chirps_sent) % time_ms;
+      //cout << boost::format("Scheduling chirp %d RX for %0.3f ms\n") % (chirps_sent) % time_ms;
 
       rx_stream->issue_stream_cmd(stream_cmd);
 
@@ -527,14 +541,15 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
         error_count++;
 
         if (clk_ref == "gpsdo") {
-          gpsfile << "!RF ERROR!";
+          //gpsfile << "!RF ERROR!";
+          boost::asio::async_write(gps_stream, boost::asio::buffer("RF ERROR"), gps_asio_handler);
         }
 
         //time_offset = time_offset + 2*pulse_rep_int;
         error_state = false;
       }
 
-      cout << "Received chirp " << chirps_sent << " [samples: " << num_rx_samps << "]" << endl;
+      //cout << "Received chirp " << chirps_sent << " [samples: " << num_rx_samps << "]" << endl;
 
       //uv_fs_write(loop, &write_req, open_req.result, &uv_buffer, 1, -1, on_write);
 
@@ -563,10 +578,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     }
 
     // write summed data to file
-    if (outfile.is_open()) {
+    /*if (outfile.is_open()) {
       outfile.write((const char*)&sample_sum.front(), 
         num_rx_samps * sizeof(complex<float>));
-    }
+    }*/
+    boost::asio::async_write(rf_stream, boost::asio::buffer(sample_sum), rf_asio_handler);
 
     // write gps string to file
     if (clk_ref == "gpsdo") {
@@ -574,10 +590,10 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       gpsfile.write("\n", sizeof(char));
       cout << "[HERE] writing gps string" << endl;*/
 
-      cout << "gps data size: " << sizeof(gps_data) << endl;
-      boost::asio::async_write(stream, boost::asio::buffer(gps_data + "\n"), handler);
+      //cout << "gps data size: " << sizeof(gps_data) << endl;
+      boost::asio::async_write(gps_stream, boost::asio::buffer(gps_data + "\n"), gps_asio_handler);
 
-      gps_buffer = uv_buf_init((char*)gps_data.c_str(), sizeof(gps_data));
+      //gps_buffer = uv_buf_init((char*)gps_data.c_str(), sizeof(gps_data));
       //uv_fs_write(loop, &write_req, open_req.result, &gps_buffer, 1, -1, on_write);
     }
 
@@ -585,17 +601,20 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     fill(sample_sum.begin(), sample_sum.end(), complex<float>(0,0));
   }
 
-  int uv_write = uv_fs_write(loop, &write_req, open_req.result, &uv_buffer, 1, -1, on_write);
+  //int uv_write = uv_fs_write(loop, &write_req, open_req.result, &uv_buffer, 1, -1, on_write);
   //cout << "UV WRITE STATUS: " << uv_strerror(uv_write) << endl;
   //this_thread::sleep_for(chrono::seconds(1));
 
   /*** WRAP UP ***/
 
   cout << "[RX] Closing output file." << endl;
-  outfile.close();
+  /*outfile.close();
   if (gpsfile.is_open()) {
     gpsfile.close();
-  }
+  }*/
+
+  gps_stream.close();
+  rf_stream.close();
 
   cout << "[RX] Error count: " << error_count << endl;
   
@@ -607,11 +626,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   //free(uv_buffer.base); 
   //this_thread::sleep_for(chrono::seconds(1));
-  uv_fs_close(loop, &close_req, open_req.result, NULL);
-  uv_fs_req_cleanup(&open_req);
+  //uv_fs_close(loop, &close_req, open_req.result, NULL);
+  //uv_fs_req_cleanup(&open_req);
  // uv_fs_req_cleanup(&_req);
-  uv_fs_req_cleanup(&write_req);
-  int loop_status = uv_loop_close(loop);
+  //uv_fs_req_cleanup(&write_req);
+  //int loop_status = uv_loop_close(loop);
   /*while (loop_status == UV_EBUSY) {
     cout << "uv loop not done, wait a little bit" << endl;
     loop_status = uv_loop_close(loop);
