@@ -533,7 +533,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       // get gps data
       if (clk_ref == "gpsdo") {
         gps_data = usrp->get_mboard_sensor("gps_gprmc").to_pp_string();
-        cout << gps_data << endl;
+        //cout << gps_data << endl;
       }
 
       if (error_state) {
@@ -703,7 +703,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
 #endif
 
     time_ms = (time_spec_t(tx_time).get_real_secs()) * 1000.0;
-    cout << boost::format("Scheduling chirp %d TX for %0.3f ms\n") % chirps_sent % time_ms;
+    //cout << boost::format("Scheduling chirp %d TX for %0.3f ms\n") % chirps_sent % time_ms;
 
     transmit_samples(tx_stream, tx_buff, time_spec_t(tx_time),
         num_tx_samps);

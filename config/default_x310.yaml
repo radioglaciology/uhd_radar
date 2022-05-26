@@ -14,7 +14,7 @@ GENERATE:
 DEVICE:
     device_args: "addr=192.168.10.2,dboard_clock_rate=20e6"   # device address
     subdev: "A:0 B:0"
-    clk_ref: "internal"     # gpsdo, internal (default), or external
+    clk_ref: "gpsdo"     # gpsdo, internal (default), or external
     clk_rate: 200e6      # Clock Rate [Hz]
     tx_channels: "0"
     rx_channels: "0"
@@ -45,13 +45,13 @@ CHIRP:
     rx_duration: 30e-6   # Receive duration [s]
     tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
-    pulse_rep_int: 2e-3 # Chirp period [s]
+    pulse_rep_int: 500e-3 # Chirp period [s]
     tx_lead: 0e-6       # Time between start of TX and RX[s]
     num_pulses: &num_pulses 100        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
     num_presums: &num_presums 1         # No. of chirps to (coherently) presum onboard (must be at least 1)
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "rx_sandbox"  # Save rx data here (no file extension)
+    save_loc: &save_loc "20220526_1452"  # Save rx data here (no file extension)
     
 # -------------------------- Plot Samples --------------------------- #
 PLOT:
