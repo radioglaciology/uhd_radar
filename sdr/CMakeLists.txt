@@ -49,7 +49,6 @@ include_directories(
     ${Boost_INCLUDE_DIRS}
     ${UHD_INCLUDE_DIRS}
     ${YAML_CPP_INCLUDE_DIR}
-    ${uv_INCLUDE_DIRS}
 )
 link_directories(${Boost_LIBRARY_DIRS})
 
@@ -62,7 +61,7 @@ set(CMAKE_BUILD_TYPE "Release")
 # anything else we need (in this case, some Boost libraries):
 if(NOT UHD_USE_STATIC_LIBS)
     message(STATUS "Linking against shared UHD library.")
-    target_link_libraries(radar ${UHD_LIBRARIES} ${Boost_LIBRARIES} ${YAML_CPP_LIBRARIES} uv)
+    target_link_libraries(radar ${UHD_LIBRARIES} ${Boost_LIBRARIES} ${YAML_CPP_LIBRARIES})
 # Shared library case: All we need to do is link against the library, and
 # anything else we need (in this case, some Boost libraries):
 else(NOT UHD_USE_STATIC_LIBS)

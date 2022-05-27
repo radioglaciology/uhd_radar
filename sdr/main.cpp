@@ -19,7 +19,6 @@
 #include <boost/asio/write.hpp>
 
 #include "yaml-cpp/yaml.h"
-#include "uv.h"
 
 #include "rf_settings.hpp"
 #include "utils.hpp"
@@ -418,20 +417,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   transmit_thread.create_thread(boost::bind(&transmit_worker, usrp, tx_channel_nums));
 
   /*** FILE WRITE SETUP ***/
-  /*uv_fs_t open_req;
-  uv_fs_t write_req;
-  uv_fs_t close_req;
-  uv_buf_t uv_buffer;
-  uv_buf_t gps_buffer;  
-
-  string char_buffer = "GPS_GPRMC: $GPRMC,184009.00,A,3725.6025,N,12210.3750,W,0.0,0.0,240522,,*25\n";
-  uv_buffer = uv_buf_init((char*)char_buffer.c_str(), sizeof(char_buffer));
-
-  uv_loop_t *loop = uv_default_loop();
-
-  int uv_fd = uv_fs_open(loop, &open_req, "../../data/uv_gps_test.txt", O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU, on_open);
-  uv_run(loop, UV_RUN_DEFAULT);  */
-
   boost::asio::io_service ioservice;
 
   string gps_path = "../../data/" + save_loc + "_gps.txt"; 
@@ -531,7 +516,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       receive_samples(rx_stream, num_rx_samps, rx_sample);
 
       // get gps data
-      if (clk_ref == "gpsdo") {
+      if (clk_ref == "gpsdo" && ((chirps_sent % 500) == 0)) {
         gps_data = usrp->get_mboard_sensor("gps_gprmc").to_pp_string();
         //cout << gps_data << endl;
       }
@@ -541,7 +526,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
         error_count++;
 
         if (clk_ref == "gpsdo") {
-          //gpsfile << "!RF ERROR!";
           boost::asio::async_write(gps_stream, boost::asio::buffer("RF ERROR"), gps_asio_handler);
         }
 
@@ -594,16 +578,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       boost::asio::async_write(gps_stream, boost::asio::buffer(gps_data + "\n"), gps_asio_handler);
 
       //gps_buffer = uv_buf_init((char*)gps_data.c_str(), sizeof(gps_data));
-      //uv_fs_write(loop, &write_req, open_req.result, &gps_buffer, 1, -1, on_write);
     }
 
     // clear the matrices holding the sums
     fill(sample_sum.begin(), sample_sum.end(), complex<float>(0,0));
   }
-
-  //int uv_write = uv_fs_write(loop, &write_req, open_req.result, &uv_buffer, 1, -1, on_write);
-  //cout << "UV WRITE STATUS: " << uv_strerror(uv_write) << endl;
-  //this_thread::sleep_for(chrono::seconds(1));
 
   /*** WRAP UP ***/
 
@@ -623,18 +602,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   transmit_thread.join_all();
 
   cout << "[RX] transmit_thread.join_all() complete." << endl << endl;
-
-  //free(uv_buffer.base); 
-  //this_thread::sleep_for(chrono::seconds(1));
-  //uv_fs_close(loop, &close_req, open_req.result, NULL);
-  //uv_fs_req_cleanup(&open_req);
- // uv_fs_req_cleanup(&_req);
-  //uv_fs_req_cleanup(&write_req);
-  //int loop_status = uv_loop_close(loop);
-  /*while (loop_status == UV_EBUSY) {
-    cout << "uv loop not done, wait a little bit" << endl;
-    loop_status = uv_loop_close(loop);
-  }*/
 
   return EXIT_SUCCESS;
   
