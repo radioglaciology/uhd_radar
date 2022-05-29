@@ -40,12 +40,6 @@ void transmit_samples(tx_streamer::sptr& tx_stream,
 void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
     vector<complex<float>>& res);
 
-void on_open(uv_fs_t *req);
-
-void on_write(uv_fs_t *req);
-
-void on_close(uv_fs_t *req);
-
 /*
  * SIG INT HANDLER
  */
@@ -79,6 +73,7 @@ uint32_t ATR_MASKS;
 uint32_t ATR_CONTROL;
 uint32_t GPIO_DDR;
 //uint32_t gpio_mask = (1 << num_bits) - 1;
+bool ref_out;
 
 // RF1
 double rx_rate;
@@ -149,9 +144,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     ATR_CONTROL = (AMP_GPIO_MASK);
     GPIO_DDR = (AMP_GPIO_MASK);
   }
-  constexpr std::uint8_t mask6{ 0b0100'0000 }; // represents bit 6
-  std::cout << "bit 6 is " << ((AMP_GPIO_MASK & mask6) ? "on\n" : "off\n");
-  cout << "ATR_CONTROL for bit 6 is " << ((ATR_CONTROL & mask6) ? "on\n" : "off\n");
+  ref_out = gpio_params["ref_out"].as<bool>();
 
   YAML::Node rf0 = config["RF0"];
   YAML::Node rf1 = config["RF1"];
@@ -408,6 +401,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // initialize off
   usrp->set_gpio_attr(gpio, "OUT", 0x00, gpio_mask);
 #endif
+
+  // turns external ref out port on or off
+  usrp->set_clock_source_out(ref_out);
   
   // update the offset time for start of streaming to be offset from the current usrp time
   time_offset = time_offset + time_spec_t(usrp->get_time_now()).get_real_secs();
@@ -535,7 +531,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
       //cout << "Received chirp " << chirps_sent << " [samples: " << num_rx_samps << "]" << endl;
 
-      //uv_fs_write(loop, &write_req, open_req.result, &uv_buffer, 1, -1, on_write);
 
       for (int n = 0; n < num_rx_samps; n++) {
         sample_sum[n] += rx_sample[n];
@@ -760,29 +755,4 @@ void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
 
   if (num_acc_samps < num_rx_samps) cerr << "Receive timeout before all "
     "samples received..." << endl;
-}
-
-void on_open(uv_fs_t *req) {
-  if (req->result != -1) {
-    cout << "file opened!" << endl;
-  } else {
-    cout << "error opening file" << endl;
-  }
-}
-
-void on_write(uv_fs_t *req) {
-  cout << "in write callback" << endl;
-  if (req->result >= 0) {
-    cout << "wrote to file!" << endl;
-  } else {
-    cout << "error writing to file" << endl;
-  }
-}
-
-void on_close(uv_fs_t *req) {
-  if (req->result != 1) {
-    cout << "file closed!" << endl;
-  } else {
-    cout << "error closing file" << endl;
-  }
 }

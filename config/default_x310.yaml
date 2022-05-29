@@ -4,28 +4,29 @@
 GENERATE:
     sample_rate: &s_rate 20e6        # Of the generated chirp, tx and rx sample rates [sps]
     chirp_type: 'linear'             # Can be 'linear'
-    chirp_bandwidth: 20e6            # [Hz]
+    chirp_bandwidth: 1e6            # [Hz]
     window: 'rectangular'            # Window function applied to the chirp
     chirp_length: &chirp_len 10e-6    # [s]
-    out_file: &ch_sent "data/usrp_samples.dat"   # The name of the output binary file
+    out_file: &ch_sent "data/usrp_samples2MHz.dat"   # The name of the output binary file
     show_plot: True                 # Display a time-domain plot of the generated chirp
 
 # ----------------- TX/RX for X310 --------------------- #
 DEVICE:
     device_args: "addr=192.168.10.2,dboard_clock_rate=20e6"   # device address
     subdev: "A:0 B:0"
-    clk_ref: "gpsdo"     # gpsdo, internal (default), or external
+    clk_ref: "internal"     # gpsdo, internal (default), or external
     clk_rate: 200e6      # Clock Rate [Hz]
     tx_channels: "0"
     rx_channels: "0"
 GPIO:
     gpio_bank: "FP0"     # which GPIO bank to use (FP0 is front panel and default)
-    pwr_amp_pin: "-1"     # which GPIO pin (on the DB15 connector) to use for external power amplifier control (set to -1 if not using), (normally 8)
+    pwr_amp_pin: "8"     # which GPIO pin (on the DB15 connector) to use for external power amplifier control (set to -1 if not using), (normally 8)
+    ref_out: true          # whether to turn the 10 MHz reference out signal on (true) or off (false)
 RF0:                     # parameters for first RF channel
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 300e6          # Center Frequency (for mixing)
-    rx_gain: 10         # RX Gain [dB]
+    freq: 12e6          # Center Frequency (for mixing)
+    rx_gain: 0         # RX Gain [dB]
     tx_gain: 10         # TX Gain [dB]
     bw: 0                # TX/RW Bandwidth [Hz]
     tx_ant: "TX/RX"
@@ -47,11 +48,11 @@ CHIRP:
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
     pulse_rep_int: 500e-3 # Chirp period [s]
     tx_lead: 0e-6       # Time between start of TX and RX[s]
-    num_pulses: &num_pulses 100        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
+    num_pulses: &num_pulses -1        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
     num_presums: &num_presums 1         # No. of chirps to (coherently) presum onboard (must be at least 1)
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "20220526_1452"  # Save rx data here (no file extension)
+    save_loc: &save_loc "20220529_1356"  # Save rx data here (no file extension)
     
 # -------------------------- Plot Samples --------------------------- #
 PLOT:
