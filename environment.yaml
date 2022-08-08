@@ -7,7 +7,7 @@ dependencies:
   - uhd
   - scipy
   - matplotlib
-  - yaml-cpp
+  - yaml-cpp=0.6.3
   - pip
     - gpiozero
     - RPi.GPIO
