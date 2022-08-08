@@ -24,7 +24,7 @@ GPIO:
 RF0:
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 420e6          # Center Frequency (for mixing)
+    freq: 380e6          # Center Frequency (for mixing)
     rx_gain: 45          # RX Gain [dB]
     tx_gain: 60.8        # TX Gain [dB] - 60.8 is -10 dBm output
     bw: 56e6             # TX/RW Bandwidth [Hz]

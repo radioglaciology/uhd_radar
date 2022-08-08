@@ -8,3 +8,6 @@ dependencies:
   - scipy
   - matplotlib
   - yaml-cpp
+  - pip
+    - gpiozero
+    - RPi.GPIO
