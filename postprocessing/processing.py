@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 # The real and imaginary parts of the signal are of type np.float32
 # -----
 # filename - the name of the bin file to open
-def extractSig (filename):
-    sig_floats = np.fromfile(filename, dtype=np.float32, count=-1, sep='', offset=0)
+def extractSig (filename, count=-1, offset=0):
+    sig_floats = np.fromfile(filename, dtype=np.float32, count=count, sep='', offset=offset)
     return (sig_floats[::2] + (1j * sig_floats[1::2])).astype(np.csingle)
 
 # This function plots a TX or RX complex chirp in an Voltage vs. Time (ms) graph
@@ -30,7 +30,7 @@ def plotChirpVsTime (signal, title, sample_rate):
     axs[0].plot(rx_time, np.real(signal))
     axs[1].set(xlabel='Time (us)', ylabel='Imaginary')
     axs[1].plot(rx_time, np.imag(signal))
-    return
+    return fig, axs
 
 # This function plots a TX or RX complex chirp in an Voltage vs. Sample graph.
 # -----
