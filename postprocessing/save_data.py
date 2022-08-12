@@ -25,6 +25,8 @@ def save_data(yaml_filename, extra_files={}):
         shutil.copy(source_file, file_prefix + "_" + dest_tag)
 
     print(f"File copying complete.")
+    
+    return file_prefix
 
 if __name__ == "__main__":
     # Check if a YAML file was provided as a command line argument
