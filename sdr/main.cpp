@@ -522,7 +522,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
         error_count++;
 
         if (clk_ref == "gpsdo") {
-          boost::asio::async_write(gps_stream, boost::asio::buffer("RF ERROR"), gps_asio_handler);
+          boost::asio::async_write(gps_stream, boost::asio::buffer("RF ERROR\n"), gps_asio_handler);
         }
 
         //time_offset = time_offset + 2*pulse_rep_int;
