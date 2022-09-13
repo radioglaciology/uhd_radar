@@ -35,7 +35,7 @@ void transmit_samples(tx_streamer::sptr& tx_stream,
   size_t num_tx_samps);
   
 void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
-    vector<complex<float>>& res);
+    vector<complex<float>>& res, int chirp_num);
 
 /*
  * SIG INT HANDLER
@@ -91,6 +91,7 @@ double pulse_rep_int;
 double tx_lead;
 int num_pulses;
 int num_presums;
+int max_chirps_per_file;
 
 // FILENAMES
 string chirp_loc;
@@ -165,6 +166,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   tx_lead = chirp["tx_lead"].as<double>();
   num_pulses = chirp["num_pulses"].as<int>();
   num_presums = chirp["num_presums"].as<int>();
+  max_chirps_per_file = chirp["max_chirps_per_file"].as<int>();
 
   YAML::Node files = config["FILES"];
   chirp_loc = files["chirp_loc"].as<string>();
@@ -263,7 +265,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   cout << "INFO: Number of RX samples: " << num_rx_samps << endl << endl;
 
   // stream arguments for both tx and rx
-  stream_args_t stream_args("fc32", "sc16");
+  stream_args_t stream_args("fc32", "sc12");
 
   // Check Ref and LO Lock detect
   vector<std::string> tx_sensor_names, rx_sensor_names;
@@ -340,7 +342,19 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // open file for writing rx samples
   ofstream outfile;
-  outfile.open("../../" + save_loc, ofstream::binary);
+  if (save_loc[0] != '/') {
+    save_loc = "../../" + save_loc;
+  }
+  int save_file_index = 0;
+  string current_filename = save_loc;
+  if (max_chirps_per_file > 0) {
+    // Breaking into multiple files is enabled
+    current_filename = current_filename + "." + to_string(save_file_index);
+  }
+
+  // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+  cout << "[OPEN FILE] " << current_filename << endl;
+  outfile.open(current_filename, ofstream::binary);
 
   // set up buffers for rx
   uhd::rx_metadata_t md;
@@ -355,6 +369,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   if (num_pulses < 0) {
     cout << "num_pulses is < 0. Will continue to send chirps until stopped with Ctrl-C." << endl;
   }
+
+  // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+  cout << "[START] Beginning main loop" << endl;
 
   //for (int i = 0; i < num_pulses; i += num_presums) {
   int chirps_sent = 0;
@@ -385,25 +402,25 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       stream_cmd.time_spec = time_spec_t(rx_time);
 
       time_ms = time_spec_t(rx_time).get_real_secs() * 1000.0;
-      cout << boost::format("Scheduling chirp %d RX for %0.3f ms\n") % (chirps_sent) % time_ms;
+      //cout << boost::format("Scheduling chirp %d RX for %0.3f ms\n") % (chirps_sent) % time_ms;
 
       rx_stream->issue_stream_cmd(stream_cmd);
 
-      receive_samples(rx_stream, num_rx_samps, rx_sample);
+      receive_samples(rx_stream, num_rx_samps, sample_sum, chirps_sent);
 
       if (error_state) {
-        cout << "Error occured. Trying to reset." << endl;
+        //cout << "Error occured. Trying to reset." << endl;
         error_count++;
 
-        //time_offset = time_offset + 2*pulse_rep_int;
+        time_offset = time_offset + 2*pulse_rep_int;
         error_state = false;
       }
 
-      cout << "Received chirp " << chirps_sent << " [samples: " << num_rx_samps << "]" << endl;
+      //cout << "Received chirp " << chirps_sent << " [samples: " << num_rx_samps << "]" << endl;
 
-      for (int n = 0; n < num_rx_samps; n++) {
-        sample_sum[n] += rx_sample[n];
-      }
+      // for (int n = 0; n < num_rx_samps; n++) {
+      //   sample_sum[n] += rx_sample[n];
+      // }
 
       chirps_sent++;
 
@@ -414,10 +431,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
         cout << "[RX] Stop signal set during inner loop. Breaking from inner loop." << endl;
         break;
       }
-    } // then take average of coherently summed samples
-    /*for (int n = 0; n < num_rx_samps; n++) {
-      sample_sum[n] = sample_sum[n] / ((float)num_presums);
-    }*/
+    }
 
     // check if someone wants to stop
     if (stop_signal_called) {
@@ -431,6 +445,19 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
         num_rx_samps * sizeof(complex<float>));
     }
 
+    if ( (max_chirps_per_file > 0) && (int(chirps_sent / 100) > save_file_index)) {
+      outfile.close();
+      // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+      cout << "[CLOSE FILE] " << current_filename << endl;
+      
+      save_file_index++;
+      current_filename = save_loc + "." + to_string(save_file_index);
+
+      // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+      cout << "[OPEN FILE] " << current_filename << endl;
+      outfile.open(current_filename, ofstream::binary);
+    }
+    
     // clear the matrices holding the sums
     fill(sample_sum.begin(), sample_sum.end(), complex<float>(0,0));
   }
@@ -440,6 +467,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   cout << "[RX] Closing output file." << endl;
   outfile.close();
+  cout << "[CLOSE FILE] " << current_filename << endl;
 
   cout << "[RX] Error count: " << error_count << endl;
   
@@ -462,7 +490,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
   /*** TX SETUP ***/
 
   // stream arguments for both tx and rx
-  stream_args_t stream_args("fc32", "sc16");
+  stream_args_t stream_args("fc32", "sc12");
   stream_args.channels = tx_channel_nums;
 
   // tx streamer
@@ -516,7 +544,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
 #endif
 
     time_ms = (time_spec_t(tx_time).get_real_secs()) * 1000.0;
-    cout << boost::format("Scheduling chirp %d TX for %0.3f ms\n") % chirps_sent % time_ms;
+    //cout << boost::format("Scheduling chirp %d TX for %0.3f ms\n") % chirps_sent % time_ms;
 
     transmit_samples(tx_stream, tx_buff, time_spec_t(tx_time),
         num_tx_samps);
@@ -565,7 +593,7 @@ void transmit_samples(tx_streamer::sptr& tx_stream,
  * RECEIVE_SAMPLES
  */
 void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
-    vector<complex<float>>& res){
+    vector<complex<float>>& res, int chirp_num){
 
   // meta data holder
   rx_metadata_t md;
@@ -591,15 +619,17 @@ void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
 
     // errors
     if (md.error_code != rx_metadata_t::ERROR_CODE_NONE){
-      cout << "WARNING: Receiver error: " << md.strerror() << endl;
+      // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+      cout << "[ERROR] (Chirp " << chirp_num << ") Receiver error: " << md.strerror() << "\n";
       // throw std::runtime_error(str(boost::format(
       //   "Receiver error %s") % md.strerror()));
       error_state = true;
       return;
     } else {
-      for (int i = 0; i < n_samps; i++) { // TODO: this feels inefficient 
-        res[num_acc_samps + i] = buff[i]; 
-      }
+      transform(res.begin()+num_acc_samps, res.begin()+num_acc_samps+n_samps, buff.begin(), res.begin()+num_acc_samps, plus<complex<float>>());
+      // for (int i = 0; i < n_samps; i++) { // TODO: this feels inefficient 
+      //   res[num_acc_samps + i] = buff[i]; 
+      // }
       num_acc_samps += n_samps;
     }
   }
