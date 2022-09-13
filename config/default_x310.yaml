@@ -21,13 +21,13 @@ DEVICE:
     otw_format: "sc16" # On the wire format - see https://files.ettus.com/manual/structuhd_1_1stream__args__t.html#a0ba0e946d2f83f7ac085f4f4e2ce9578
 GPIO:
     gpio_bank: "FP0"     # which GPIO bank to use (FP0 is front panel and default)
-    pwr_amp_pin: "8"     # which GPIO pin (on the DB15 connector) to use for external power amplifier control (set to -1 if not using)
+    pwr_amp_pin: "-1"     # which GPIO pin (on the DB15 connector) to use for external power amplifier control (set to -1 if not using)
 RF0:                     # parameters for first RF channel
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 30e6          # Center Frequency (for mixing)
-    rx_gain: 0         # RX Gain [dB]
-    tx_gain: 0         # TX Gain [dB]
+    freq: 330e6          # Center Frequency (for mixing)
+    rx_gain: 10         # RX Gain [dB]
+    tx_gain: 10         # TX Gain [dB]
     bw: 0                # TX/RW Bandwidth [Hz]
     tx_ant: "TX/RX"
     rx_ant: "RX2"
@@ -43,17 +43,17 @@ RF1:                     # parameters for second RF channel, only used if set to
 CHIRP:
     time_offset: 1       # Time before first receive [s]
     tx_duration: *chirp_len # Transmission duration [s]
-    rx_duration: 100e-6   # Receive duration [s]
+    rx_duration: 30e-6   # Receive duration [s]
     tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
-    pulse_rep_int: 1e-3 # Chirp period [s]
+    pulse_rep_int: 2.5e-3 # Chirp period [s]
     tx_lead: 0e-6       # Time between start of TX and RX[s]
-    num_pulses: &num_pulses -1        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
+    num_pulses: &num_pulses 10000        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
     num_presums: &num_presums 1         # No. of chirps to (coherently) presum onboard (must be at least 1)
     max_chirps_per_file: -1 # Maximum number of RX from a chirp to write to a single file -- set to -1 to avoid breaking into multiple files
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "data/20220222_2018_rxtest_nolna.dat"  # Save rx data here
+    save_loc: &save_loc "data/usrp_samples.dat"  # Save rx data here
     
 # -------------------------- Plot Samples --------------------------- #
 PLOT:

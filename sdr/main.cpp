@@ -61,6 +61,7 @@ string clk_ref;
 double clk_rate;
 string tx_channels; 
 string rx_channels;
+string otw_format;
 
 // GPIO
 int pwr_amp_pin;
@@ -130,6 +131,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   clk_rate = dev_params["clk_rate"].as<double>();
   tx_channels = dev_params["tx_channels"].as<string>();
   rx_channels = dev_params["rx_channels"].as<string>();
+  otw_format = dev_params["otw_format"].as<string>();
 
   YAML::Node gpio_params = config["GPIO"];
   gpio_bank = gpio_params["gpio_bank"].as<string>();
@@ -265,7 +267,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   cout << "INFO: Number of RX samples: " << num_rx_samps << endl << endl;
 
   // stream arguments for both tx and rx
-  stream_args_t stream_args("fc32", "sc12");
+  stream_args_t stream_args("fc32", otw_format);
 
   // Check Ref and LO Lock detect
   vector<std::string> tx_sensor_names, rx_sensor_names;
@@ -490,7 +492,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
   /*** TX SETUP ***/
 
   // stream arguments for both tx and rx
-  stream_args_t stream_args("fc32", "sc12");
+  stream_args_t stream_args("fc32", otw_format);
   stream_args.channels = tx_channel_nums;
 
   // tx streamer
