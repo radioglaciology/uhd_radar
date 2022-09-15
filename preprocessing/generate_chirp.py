@@ -14,6 +14,7 @@ def generate_chirp(config):
     chirp_bandwidth = gen_params["chirp_bandwidth"]
     window = gen_params["window"]
     chirp_length = gen_params["chirp_length"]
+    pulse_length = gen_params["pulse_length"]
 
     print("--- Loaded constants from config.yaml ---")
 
@@ -24,6 +25,7 @@ def generate_chirp(config):
     start_freq = -1 * end_freq
 
     ts = np.arange(0, chirp_length-(1/(2*sample_rate)), 1/(sample_rate))
+    ts_zp = np.arange(0, (pulse_length)-(1/(2*sample_rate)), 1/(sample_rate))
 
     if chirp_type == 'linear':
         ph = 2*np.pi*(start_freq*ts + (end_freq - start_freq) * ts**2 / (2*chirp_length))
@@ -36,7 +38,6 @@ def generate_chirp(config):
 
     chirp_complex = np.exp(1j*ph)
 
-
     if window == "blackman":
         chirp_complex = chirp_complex * np.blackman(chirp_complex.size)
     elif window == "hamming":
@@ -44,8 +45,10 @@ def generate_chirp(config):
     elif window != "rectangular":
         printf("[ERROR] Unrecognized window function '{window}'")
         return None, None
-    
-    return ts, chirp_complex
+
+    chirp_complex = np.pad(chirp_complex, (int(np.floor(ts_zp.size - ts.size)/2),), 'constant')
+
+    return ts_zp, chirp_complex
 
 
 def generate_from_yaml_filename(yaml_filename):
