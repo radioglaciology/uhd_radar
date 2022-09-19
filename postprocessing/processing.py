@@ -1,6 +1,8 @@
 import numpy as np
 import scipy.signal as sp
 import matplotlib.pyplot as plt
+import os
+import re
 
 # This function extracts the complex signal stored in a bin file.
 # The format of the bin file is <1st real><1st imag><2nd real><2nd imag>
@@ -10,6 +12,36 @@ import matplotlib.pyplot as plt
 def extractSig (filename, count=-1, offset=0):
     sig_floats = np.fromfile(filename, dtype=np.float32, count=count, sep='', offset=offset)
     return (sig_floats[::2] + (1j * sig_floats[1::2])).astype(np.csingle)
+
+# Load samples from a file safely
+# Maximum file size and chunk-by-chunk loading used to manage memory
+def loadSamplesFromFile(filename, config, reshape=True, max_chunk_size=int(5e8), max_seconds_to_load=60*20, load_start_seconds=0):
+
+    rx_len_samples = int(config['CHIRP']['rx_duration'] * config['GENERATE']['sample_rate'])
+    max_file_size_bytes = rx_len_samples*int(1/config['CHIRP']['pulse_rep_int'])*8*max_seconds_to_load
+    load_start_bytes = rx_len_samples*int(1/config['CHIRP']['pulse_rep_int'])*8*load_start_seconds
+
+    file_size_bytes = os.path.getsize(filename) - load_start_bytes
+    if file_size_bytes > max_file_size_bytes:
+        print(f"WARNING: File is {file_size_bytes/(2**30):.2f} GB ({file_size_bytes / (rx_len_samples*int(1/config['CHIRP']['pulse_rep_int'])*2):.2f} seconds). Only loading the first {max_seconds_to_load} seconds.")
+        file_size_bytes = max_file_size_bytes
+
+    rx_sig = np.zeros((file_size_bytes//8,), dtype=np.csingle)
+    for start_offset in np.arange(0, file_size_bytes, max_chunk_size, dtype=np.int64):
+        if start_offset + max_chunk_size > file_size_bytes:
+            #print(f"{start_offset} (last) count: {file_size_bytes-start_offset}, offset: {load_start_bytes+start_offset}")
+            rx_sig[(start_offset//8):] = extractSig(filename, count=file_size_bytes-start_offset, offset=load_start_bytes+start_offset)
+        else:
+            #print(f"{max_chunk_size}, {start_offset}")
+            rx_sig[(start_offset//8):((start_offset//8)+(max_chunk_size//2))] = extractSig(filename, count=max_chunk_size, offset=load_start_bytes+start_offset)
+
+    # Reshape
+    if reshape:
+        n_rxs = len(rx_sig) // rx_len_samples
+        rx_sig = np.transpose(np.reshape(rx_sig, (n_rxs, rx_len_samples), order='C'))
+
+
+    return rx_sig
 
 # This function plots a TX or RX complex chirp in an Voltage vs. Time (ms) graph
 # -----
@@ -106,3 +138,30 @@ def getSNR (ideal, actual):
     
     snr = avg_signal_pwr / avg_noise_pwr
     return snr
+
+def extractErrorsFromLog(log_file, raise_exception=False):
+    errors = None
+
+    if os.path.exists(log_file):
+        errors = {}
+        
+        log_f = open(log_file, 'r')
+        log = log_f.readlines()
+        
+        for idx, line in enumerate(log):
+            if "Receiver error:" in line:
+                error_code = re.search("(?:Receiver error: )([\w_]+)", line).groups()[0]
+                chirp_idx = int(re.search("(?:Scheduling chirp )([\d]+)", log[idx-1]).groups()[0])
+                errors[chirp_idx] = error_code
+                if error_code != "ERROR_CODE_LATE_COMMAND":
+                    print(f"WARNING: Uncommon error in the log: {error_code} (on chirp {chirp_idx})")
+                    print(f"Full message: {line}")
+                    if raise_exception:
+                        raise Exception("Unexpected error found in log")
+    else:
+        print(f"WARNING: No log file found. This is fine, but checks for error codes will be disabled.")
+        print(f"(Looking for a log file in: {log_file})")
+        if raise_exception:
+            raise Exception("Log file not found")
+
+    return errors
