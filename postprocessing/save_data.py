@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from ruamel.yaml import YAML as ym
 
-def save_data(yaml_filename, extra_files={}):
+def save_data(yaml_filename, extra_files={}, alternative_rx_samps_loc=None):
     # Initialize Constants
     yaml = ym()
     with open(yaml_filename) as stream:
@@ -19,7 +19,10 @@ def save_data(yaml_filename, extra_files={}):
     print(f"Copying data to {file_prefix}...")
 
     shutil.copy(yaml_filename, file_prefix + "_config.yaml")
-    shutil.copy(config['FILES']['save_loc'], file_prefix + "_rx_samps.bin")
+    if alternative_rx_samps_loc is None:
+        shutil.copy(config['FILES']['save_loc'], file_prefix + "_rx_samps.bin")
+    else:
+        shutil.copy(alternative_rx_samps_loc, file_prefix + "_rx_samps.bin")
 
     for source_file, dest_tag in extra_files.items():
         shutil.copy(source_file, file_prefix + "_" + dest_tag)

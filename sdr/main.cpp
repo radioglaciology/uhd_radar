@@ -168,11 +168,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   tx_lead = chirp["tx_lead"].as<double>();
   num_pulses = chirp["num_pulses"].as<int>();
   num_presums = chirp["num_presums"].as<int>();
-  max_chirps_per_file = chirp["max_chirps_per_file"].as<int>();
 
   YAML::Node files = config["FILES"];
   chirp_loc = files["chirp_loc"].as<string>();
   save_loc = files["save_loc"].as<string>();
+  max_chirps_per_file = files["max_chirps_per_file"].as<int>();
 
   // Calculated parameters
   tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
@@ -447,7 +447,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
         num_rx_samps * sizeof(complex<float>));
     }
 
-    if ( (max_chirps_per_file > 0) && (int(chirps_sent / 100) > save_file_index)) {
+    if ( (max_chirps_per_file > 0) && (int(chirps_sent / max_chirps_per_file) > save_file_index)) {
       outfile.close();
       // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
       cout << "[CLOSE FILE] " << current_filename << endl;
