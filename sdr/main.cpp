@@ -23,8 +23,6 @@
 #include "rf_settings.hpp"
 #include "utils.hpp"
 
-//#define USE_GPIO
-
 using namespace std;
 using namespace uhd;
 
@@ -72,7 +70,6 @@ uint32_t AMP_GPIO_MASK;
 uint32_t ATR_MASKS;
 uint32_t ATR_CONTROL;
 uint32_t GPIO_DDR;
-//uint32_t gpio_mask = (1 << num_bits) - 1;
 bool ref_out;
 
 // RF1
@@ -391,17 +388,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   //cout << "AMP_GPIO_MASK: " << bitset<32>(AMP_GPIO_MASK) << endl;
 
-#ifdef USE_GPIO
-  //set data direction register (DDR)
-  usrp->set_gpio_attr(gpio, "DDR", 0xff, gpio_mask);
-
-  //set control register
-  usrp->set_gpio_attr(gpio, "CTRL", 0x00, gpio_mask);
-  
-  // initialize off
-  usrp->set_gpio_attr(gpio, "OUT", 0x00, gpio_mask);
-#endif
-
   // turns external ref out port on or off
   usrp->set_clock_source_out(ref_out);
   
@@ -486,18 +472,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       double rx_time = time_offset + (pulse_rep_int * chirps_sent);
       double tx_time = rx_time - tx_lead;
       double time_ms;
-
-#ifdef USE_GPIO
-      // Schedule GPIO off
-      double tr_off_time = tx_time + tr_off_delay;
-
-      time_ms = (uhd::time_spec_t(tr_off_time).get_real_secs()) * 1000.0;
-      cout << boost::format("Scheduling chirp %d GPIO OFF for %0.3f ms\n") % i % time_ms;
-
-      usrp->set_command_time(time_spec_t(tr_off_time));
-      usrp->set_gpio_attr(gpio, "OUT", 0x00, gpio_mask);
-      usrp->clear_command_time();
-#endif
 
       stream_cmd_t stream_cmd(stream_cmd_t::STREAM_MODE_NUM_SAMPS_AND_DONE);
       stream_cmd.num_samps = num_rx_samps;
@@ -651,18 +625,6 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
     double rx_time = time_offset + (pulse_rep_int * chirps_sent);
     double tx_time = rx_time - tx_lead;
     double time_ms;
-
-#ifdef USE_GPIO
-    // GPIO Schedule
-    double tr_on_time = tx_time - tr_on_lead;
-
-    time_ms = (time_spec_t(tr_on_time).get_real_secs()) * 1000.0;
-    cout << boost::format("Scheduling chirp %d GPIO ON for %0.3f ms\n") % chirps_sent % time_ms;
-
-    usrp->set_command_time(time_spec_t(tr_on_time));
-    usrp->set_gpio_attr(gpio, "OUT", 0x01, gpio_mask);
-    usrp->clear_command_time();
-#endif
 
     time_ms = (time_spec_t(tx_time).get_real_secs()) * 1000.0;
     cout << boost::format("Scheduling chirp %d TX for %0.3f ms\n") % chirps_sent % time_ms;
