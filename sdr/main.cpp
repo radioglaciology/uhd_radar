@@ -407,11 +407,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       throw std::runtime_error("Failed to open GPS file: " + gps_path);
   }
 
-  string rf_path = "../../data/" + save_loc + "_rx_samps.dat";
+  /*string rf_path = "../../data/" + save_loc + "_rx_samps.dat";
   int rf_file = open(rf_path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
   if (rf_file == -1) {
     throw std::runtime_error("Failed to open RF file: " + rf_path);
-  }
+  }*/
 
   //boost::asio::posix::stream_descriptor stream{ioservice, STDOUT_FILENO};
   boost::asio::posix::stream_descriptor gps_stream{ioservice, gps_file};
@@ -440,7 +440,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // open file for writing rx samples
   ofstream outfile;
-  outfile.open("../../data/" + save_loc + ".dat", ofstream::binary);
+  outfile.open("../../data/" + save_loc + ".bin", ofstream::binary);
   /*ofstream gpsfile;
   if (clk_ref == "gpsdo") {  
     gpsfile.open("../../data/gps_" + save_loc + ".txt", ofstream::binary);
