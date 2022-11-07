@@ -421,12 +421,12 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     }
   };
 
-  boost::asio::posix::stream_descriptor rf_stream{ioservice, rf_file};
+  /*boost::asio::posix::stream_descriptor rf_stream{ioservice, rf_file};
   auto rf_asio_handler = [](const boost::system::error_code& ec, size_t) {
     if (ec.value() != 0) {
       cout << "RF write error: " << ec.message() << endl;
     }
-  };
+  };*/
 
   ioservice.run();
 
@@ -439,9 +439,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   rx_streamer::sptr rx_stream = usrp->get_rx_stream(stream_args);
 
   // open file for writing rx samples
-  /*ofstream outfile;
+  ofstream outfile;
   outfile.open("../../data/" + save_loc + ".dat", ofstream::binary);
-  ofstream gpsfile;
+  /*ofstream gpsfile;
   if (clk_ref == "gpsdo") {  
     gpsfile.open("../../data/gps_" + save_loc + ".txt", ofstream::binary);
     cout << "[HERE] gps file opened" << endl;
@@ -531,11 +531,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     }
 
     // write summed data to file
-    /*if (outfile.is_open()) {
+    if (outfile.is_open()) {
       outfile.write((const char*)&sample_sum.front(), 
         num_rx_samps * sizeof(complex<float>));
-    }*/
-    boost::asio::async_write(rf_stream, boost::asio::buffer(sample_sum), rf_asio_handler);
+    }
+    //boost::asio::async_write(rf_stream, boost::asio::buffer(sample_sum), rf_asio_handler);
 
     // write gps string to file
     if (clk_ref == "gpsdo") {
@@ -556,13 +556,13 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   /*** WRAP UP ***/
 
   cout << "[RX] Closing output file." << endl;
-  /*outfile.close();
-  if (gpsfile.is_open()) {
+  outfile.close();
+  /*if (gpsfile.is_open()) {
     gpsfile.close();
   }*/
 
   gps_stream.close();
-  rf_stream.close();
+  //rf_stream.close();
 
   cout << "[RX] Error count: " << error_count << endl;
   
