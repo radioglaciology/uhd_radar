@@ -5,7 +5,7 @@ GENERATE:
     sample_rate: &s_rate 20e6        # Of the generated chirp, tx and rx sample rates [sps]
     chirp_type: 'linear'             # Can be 'linear'
     chirp_bandwidth: 20e6            # [Hz]
-    window: 'blackman'            # Window function applied to the chirp
+    window: 'rectangular'            # Window function applied to the chirp
     chirp_length: &chirp_len 10e-6    # [s]
     out_file: &ch_sent "data/usrp_samples.dat"   # The name of the output binary file
     show_plot: True                 # Display a time-domain plot of the generated chirp
@@ -25,9 +25,9 @@ GPIO:
 RF0:                     # parameters for first RF channel
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 18e6          # Center Frequency (for mixing)
-    rx_gain: 20         # RX Gain [dB]
-    tx_gain: 20         # TX Gain [dB]
+    freq: 330e6          # Center Frequency (for mixing)
+    rx_gain: 10         # RX Gain [dB]
+    tx_gain: 10         # TX Gain [dB]
     bw: 0                # TX/RW Bandwidth [Hz]
     tx_ant: "TX/RX"
     rx_ant: "RX2"
@@ -43,16 +43,16 @@ RF1:                     # parameters for second RF channel, only used if set to
 CHIRP:
     time_offset: 1       # Time before first receive [s]
     tx_duration: *chirp_len # Transmission duration [s]
-    rx_duration: 60e-6   # Receive duration [s]
+    rx_duration: 30e-6   # Receive duration [s]
     tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
-    pulse_rep_int: 20e-3 # Chirp period [s]
+    pulse_rep_int: 5e-3 # Chirp period [s]
     tx_lead: 0e-6       # Time between start of TX and RX[s]
-    num_pulses: &num_pulses 2000        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
+    num_pulses: &num_pulses 1000        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
     num_presums: &num_presums 1         # No. of chirps to (coherently) presum onboard (must be at least 1)
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc ""  # Save rx data here (no file extension)
+    save_loc: &save_loc "20221108_2024"  # Save rx data here (no file extension)
     
 # -------------------------- Plot Samples --------------------------- #
 PLOT:

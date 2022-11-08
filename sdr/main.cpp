@@ -440,7 +440,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // open file for writing rx samples
   ofstream outfile;
-  outfile.open("../../data/" + save_loc + ".bin", ofstream::binary);
+  outfile.open("../../data/" + save_loc + "_rx_samps.bin", ofstream::binary);
   /*ofstream gpsfile;
   if (clk_ref == "gpsdo") {  
     gpsfile.open("../../data/gps_" + save_loc + ".txt", ofstream::binary);
