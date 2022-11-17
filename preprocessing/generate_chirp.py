@@ -48,16 +48,10 @@ def generate_chirp(config):
     return ts, chirp_complex
 
 
-if __name__ == '__main__':
-    # Check if a YAML file was provided as a command line argument
-    parser = argparse.ArgumentParser()
-    parser.add_argument("yaml_file", nargs='?', default='config/default.yaml',
-            help='Path to YAML configuration file')
-    args = parser.parse_args()
-
+def generate_from_yaml_filename(yaml_filename):
     # Load YAML file
     yaml = YAML(typ='safe')
-    stream = open(args.yaml_file)
+    stream = open(yaml_filename)
     config = yaml.load(stream)
 
     # Load some additional paramters needed here
@@ -113,4 +107,19 @@ if __name__ == '__main__':
         print("\tChirp successfully stored in %s" % filename)
     else:
         print("\t[ERROR] Chirp was not successfully stored in %s" % filename)
+        raise Exception("Chirp was not successfully stored")
+
+
+if __name__ == '__main__':
+    # Check if a YAML file was provided as a command line argument
+    parser = argparse.ArgumentParser()
+    parser.add_argument("yaml_file", nargs='?', default='config/default.yaml',
+            help='Path to YAML configuration file')
+    args = parser.parse_args()
+
+    try:
+        generate_from_yaml_filename(args.yaml_file)
+    except Exception as e:
+        print(e)
         sys.exit(1)
+    
