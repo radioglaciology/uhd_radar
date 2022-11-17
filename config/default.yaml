@@ -21,6 +21,7 @@ DEVICE:
 GPIO:
     gpio_bank: "FP0"     # which GPIO bank to use (FP0 is front panel and default)
     pwr_amp_pin: "-1"     # which GPIO pin (on the DB15 connector) to use for external power amplifier control (set to -1 if not using)
+    ref_out: false          # whether to turn the 10 MHz reference out signal on (true) or off (false)
 RF0:
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
@@ -51,7 +52,7 @@ CHIRP:
     num_presums: &num_presums 1         # No. of chirps to (coherently) presum onboard (must be at least 1)
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "data/rx_samps.bin"  # Save rx data here
+    save_loc: &save_loc "data/rx_samps"  # Save rx data here (no file extension)
     
 # -------------------------- Plot Samples --------------------------- #
 PLOT:
