@@ -22,6 +22,7 @@ DEVICE:
 GPIO:
     gpio_bank: "FP0"     # which GPIO bank to use (FP0 is front panel and default)
     pwr_amp_pin: "-1"     # which GPIO pin (on the DB15 connector) to use for external power amplifier control (set to -1 if not using)
+    ref_out: false          # whether to turn the 10 MHz reference out signal on (true) or off (false)
 RF0:
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
@@ -58,7 +59,6 @@ RUN_MANAGER: # These settings are only used by run.py -- not read by main.cpp at
     final_save_loc: "data/rx_samps_merged.bin"
     copy_mode: 0    # 0 -- Just save to `save_loc` and don't do anything else (`final_save_loc` is ignored)
                     # 1 -- Wait until main.cpp terminates and then concatenate all output file(s) written by main.cpp into a single file located at `final_save_loc`
-
 # -------------------------- Plot Samples --------------------------- #
 PLOT:
     rx_samps: *save_loc       # Receive data to use
