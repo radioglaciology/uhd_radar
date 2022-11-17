@@ -48,13 +48,17 @@ CHIRP:
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
     pulse_rep_int: 2.5e-3 # Chirp period [s]
     tx_lead: 0e-6       # Time between start of TX and RX[s]
-    num_pulses: &num_pulses 10000        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
+    num_pulses: &num_pulses 1000        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
     num_presums: &num_presums 1         # No. of chirps to (coherently) presum onboard (must be at least 1)
-    max_chirps_per_file: -1 # Maximum number of RX from a chirp to write to a single file -- set to -1 to avoid breaking into multiple files
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "data/usrp_samples.dat"  # Save rx data here
-    
+    save_loc: &save_loc "data/rx_samps.bin"  # Save rx data here
+    max_chirps_per_file: 500 # Maximum number of RX from a chirp to write to a single file -- set to -1 to avoid breaking into multiple files
+RUN_MANAGER: # These settings are only used by run.py -- not read by main.cpp at all
+    final_save_loc: "data/rx_samps_merged.bin"
+    copy_mode: 0    # 0 -- Just save to `save_loc` and don't do anything else (`final_save_loc` is ignored)
+                    # 1 -- Wait until main.cpp terminates and then concatenate all output file(s) written by main.cpp into a single file located at `final_save_loc`
+
 # -------------------------- Plot Samples --------------------------- #
 PLOT:
     rx_samps: *save_loc              # Receive data to use
