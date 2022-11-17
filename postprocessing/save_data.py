@@ -26,6 +26,7 @@ print(f"Copying data to {file_prefix}...")
 shutil.copy(args.yaml_file, file_prefix + "_config.yaml")
 shutil.copy("./data/" + config['FILES']['save_loc'] + "_rx_samps.bin", file_prefix + "_rx_samps.bin")
 shutil.copy("./data/" + config['FILES']['save_loc'] + "_gps.txt", file_prefix + "_gps.txt")
+# requires that you tee off the file to terminal_log.txt when running it
 shutil.copy("./data/terminal_log.txt", file_prefix + "_log.txt")
 
 print(f"File copying complete.")
