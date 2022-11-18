@@ -98,6 +98,7 @@ int max_chirps_per_file;
 // FILENAMES
 string chirp_loc;
 string save_loc;
+string gps_save_loc;
 
 
 // Calculated Parameters
@@ -171,6 +172,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   YAML::Node files = config["FILES"];
   chirp_loc = files["chirp_loc"].as<string>();
   save_loc = files["save_loc"].as<string>();
+  gps_save_loc = files["gps_loc"].as<string>();
   max_chirps_per_file = files["max_chirps_per_file"].as<int>();
 
   // Calculated parameters
@@ -405,32 +407,25 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   /*** FILE WRITE SETUP ***/
   boost::asio::io_service ioservice;
 
-  string gps_path = "../../data/" + save_loc + "_gps.txt"; 
-  int gps_file = open(gps_path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
-  if (gps_file == -1) {
-      throw std::runtime_error("Failed to open GPS file: " + gps_path);
+  if (save_loc[0] != '/') {
+    save_loc = "../../" + save_loc;
+  }
+  if (gps_save_loc[0] != '/') {
+    gps_save_loc = "../../" + gps_save_loc;
   }
 
-  /*string rf_path = "../../data/" + save_loc + "_rx_samps.dat";
-  int rf_file = open(rf_path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
-  if (rf_file == -1) {
-    throw std::runtime_error("Failed to open RF file: " + rf_path);
-  }*/
+  //string gps_path = save_loc + "_gps_log.txt"; 
+  int gps_file = open(gps_save_loc.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+  if (gps_file == -1) {
+      throw std::runtime_error("Failed to open GPS file: " + gps_save_loc);
+  }
 
-  //boost::asio::posix::stream_descriptor stream{ioservice, STDOUT_FILENO};
   boost::asio::posix::stream_descriptor gps_stream{ioservice, gps_file};
   auto gps_asio_handler = [](const boost::system::error_code& ec, std::size_t) {
     if (ec.value() != 0) {
       cout << "GPS write error: " << ec.message() << endl;
     }
   };
-
-  /*boost::asio::posix::stream_descriptor rf_stream{ioservice, rf_file};
-  auto rf_asio_handler = [](const boost::system::error_code& ec, size_t) {
-    if (ec.value() != 0) {
-      cout << "RF write error: " << ec.message() << endl;
-    }
-  };*/
 
   ioservice.run();
 
@@ -444,9 +439,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // open file for writing rx samples
   ofstream outfile;
-  if (save_loc[0] != '/') {
-    save_loc = "../../" + save_loc;
-  }
   int save_file_index = 0;
   string current_filename = save_loc;
   if (max_chirps_per_file > 0) {

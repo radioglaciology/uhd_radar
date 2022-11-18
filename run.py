@@ -41,6 +41,7 @@ class RadarProcessRunner():
         self.is_running = False
 
         self.file_queue = queue.Queue()
+        self.file_queue_size = 1
         self.output_file = None
         self.output_file_path = None
 
@@ -70,6 +71,7 @@ class RadarProcessRunner():
 
         out.close()
         file_out.close()
+        self.file_queue_size = self.file_queue.qsize()
 
     """
     Build the radar program, generate the chirp, and get ready to run
@@ -88,6 +90,11 @@ class RadarProcessRunner():
         yaml = YAML()
         with open(self.yaml_filename) as stream:
             self.config = yaml.load(stream)
+        
+        # Verify file save options
+        if self.config['RUN_MANAGER']['final_save_loc'] is None and self.config['RUN_MANAGER']['save_partial_files'] is False:
+            print("You must choose to save at least some of your data. In yaml: file_save_loc cannot be empty and save_partial files cannot be false at the same time.")
+            exit(1)
 
         # Chirp generation
         try:
@@ -156,13 +163,14 @@ class RadarProcessRunner():
         self.is_running = False
 
         self.uhd_output_reader_thread.join()
-        if self.config['RUN_MANAGER']['copy_mode'] == 1:
+        if self.config['RUN_MANAGER']['final_save_loc'] is not None:
+            print("Calling save_from_queue()")
             self.save_from_queue()
             self.output_file.close()
 
         # Save output
         print("Copying data files...")
-        file_prefix = save_data(self.yaml_filename, alternative_rx_samps_loc=self.output_file_path, extra_files={"uhd_stdout.log": "uhd_stdout.log"})
+        file_prefix = save_data(self.yaml_filename, alternative_rx_samps_loc=self.output_file_path, num_files=self.file_queue_size, extra_files={"uhd_stdout.log": "uhd_stdout.log"})
         print("Finished copying data.")
 
         self.output_file = None

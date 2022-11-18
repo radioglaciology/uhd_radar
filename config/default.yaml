@@ -54,11 +54,12 @@ CHIRP:
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
     save_loc: &save_loc "data/rx_samps.bin" #"/dev/shm/rx_samps.bin" #"/media/usb/usrp_test/rx_samps.bin" #"data/rx_samps.bin"  # Save rx data here
+    gps_loc: &gps_save_loc "data/gps_log.txt" # save gps data here (only works if gpsdo is selected as the clock source)
     max_chirps_per_file: -1 # Maximum number of RX from a chirp to write to a single file -- set to -1 to avoid breaking into multiple files
 RUN_MANAGER: # These settings are only used by run.py -- not read by main.cpp at all
-    final_save_loc: "data/rx_samps_merged.bin"
-    copy_mode: 0    # 0 -- Just save to `save_loc` and don't do anything else (`final_save_loc` is ignored)
-                    # 1 -- Wait until main.cpp terminates and then concatenate all output file(s) written by main.cpp into a single file located at `final_save_loc`
+    final_save_loc: "data/rx_samps_merged.bin" # specify the save location for the big final file, leave blank if you don't want to save a big file
+    save_partial_files: False # set to true if you want individual small files to be copied, set to false if you just want the big merged file to be copied
+    save_gps: False # set to true if using gps and wanting to save gps location data, set to false otherwise`
 # -------------------------- Plot Samples --------------------------- #
 PLOT:
     rx_samps: *save_loc       # Receive data to use
