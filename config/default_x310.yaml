@@ -8,24 +8,26 @@ GENERATE:
     window: 'rectangular'            # Window function applied to the chirp
     chirp_length: &chirp_len 10e-6    # [s] chirp length without zero padding
     pulse_length: &pulse_len 10e-6    # [s] total pulse length (chirp + symmetric zero padding)
-    out_file: &ch_sent "data/usrp_samples_tx.dat"   # The name of the output binary file
+    out_file: &ch_sent "data/chirp.bin"   # The name of the output binary file
     show_plot: True                 # Display a time-domain plot of the generated chirp
 
 # ----------------- TX/RX for X310 --------------------- #
 DEVICE:
     device_args: "addr=192.168.10.2,dboard_clock_rate=20e6"   # device address
     subdev: "A:0 B:0"
-    clk_ref: "internal"
+    clk_ref: "internal"     # gpsdo, internal (default), or external
     clk_rate: 200e6      # Clock Rate [Hz]
     tx_channels: "0"
     rx_channels: "0"
+    otw_format: "sc16" # On the wire format - see https://files.ettus.com/manual/structuhd_1_1stream__args__t.html#a0ba0e946d2f83f7ac085f4f4e2ce9578
 GPIO:
     gpio_bank: "FP0"     # which GPIO bank to use (FP0 is front panel and default)
-    pwr_amp_pin: "-1"     # which GPIO pin (on the DB15 connector) to use for external power amplifier control (set to -1 if not using)
+    pwr_amp_pin: "-1"    # which GPIO pin (on the DB15 connector) to use for external power amplifier control (set to -1 if not using), (normally 8)
+    ref_out: true          # whether to turn the 10 MHz reference out signal on (true) or off (false)
 RF0:                     # parameters for first RF channel
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 300e6          # Center Frequency (for mixing)
+    freq: 330e6          # Center Frequency (for mixing)
     rx_gain: 10         # RX Gain [dB]
     tx_gain: 10         # TX Gain [dB]
     bw: 0                # TX/RW Bandwidth [Hz]
@@ -52,14 +54,19 @@ CHIRP:
     num_presums: &num_presums 1         # No. of chirps to (coherently) presum onboard (must be at least 1)
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "data/usrp_samples_rx.dat"  # Save rx data here
-    
+    save_loc: &save_loc "data/rx_samps.bin"  # Save rx data here
+    gps_loc: &gps_save_loc "data/gps_log.txt" # save gps data here (only works if gpsdo is selected as the clock source)
+    max_chirps_per_file: 250 # Maximum number of RX from a chirp to write to a single file -- set to -1 to avoid breaking into multiple files
+RUN_MANAGER: # These settings are only used by run.py -- not read by main.cpp at all
+    final_save_loc: "data/rx_samps_merged.bin" # specify the save location for the big final file, leave blank if you don't want to save a big file
+    save_partial_files: False # set to true if you want individual small files to be copied, set to false if you just want the big merged file to be copied
+    save_gps: False # set to true if using gps and wanting to save gps location data, set to false otherwise
 # -------------------------- Plot Samples --------------------------- #
 PLOT:
     rx_samps: *save_loc              # Receive data to use
     orig_chirp: *ch_sent           # Chirp associated with receive data
     sample_rate: *s_rate
-    sig_speed: 3e8                 # Speed of signal through medium [m/s]
+    sig_speed: 1.685e8                 # Speed of signal through medium [m/s]
     direct_start: &dir_start 0    # Start search for direct path @ this sample
     echo_start: 1                  # Start search for echo @ this # of samps. after direct path
 
