@@ -36,7 +36,7 @@ void transmit_samples(tx_streamer::sptr& tx_stream,
   size_t num_tx_samps);
   
 void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
-    vector<complex<float>>& res);
+    vector<complex<float>>& res, int chirp_num);
 
 /*
  * SIG INT HANDLER
@@ -62,6 +62,7 @@ string clk_ref;
 double clk_rate;
 string tx_channels; 
 string rx_channels;
+string otw_format;
 
 // GPIO
 int pwr_amp_pin;
@@ -92,10 +93,12 @@ double pulse_rep_int;
 double tx_lead;
 int num_pulses;
 int num_presums;
+int max_chirps_per_file;
 
 // FILENAMES
 string chirp_loc;
 string save_loc;
+string gps_save_loc;
 
 
 // Calculated Parameters
@@ -130,6 +133,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   clk_rate = dev_params["clk_rate"].as<double>();
   tx_channels = dev_params["tx_channels"].as<string>();
   rx_channels = dev_params["rx_channels"].as<string>();
+  otw_format = dev_params["otw_format"].as<string>();
 
   YAML::Node gpio_params = config["GPIO"];
   gpio_bank = gpio_params["gpio_bank"].as<string>();
@@ -168,6 +172,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   YAML::Node files = config["FILES"];
   chirp_loc = files["chirp_loc"].as<string>();
   save_loc = files["save_loc"].as<string>();
+  gps_save_loc = files["gps_loc"].as<string>();
+  max_chirps_per_file = files["max_chirps_per_file"].as<int>();
 
   // Calculated parameters
   tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
@@ -339,7 +345,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   cout << "INFO: Number of RX samples: " << num_rx_samps << endl << endl;
 
   // stream arguments for both tx and rx
-  stream_args_t stream_args("fc32", "sc16");
+  stream_args_t stream_args("fc32", otw_format);
 
   // Check Ref and LO Lock detect
   vector<std::string> tx_sensor_names, rx_sensor_names;
@@ -401,32 +407,25 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   /*** FILE WRITE SETUP ***/
   boost::asio::io_service ioservice;
 
-  string gps_path = "../../data/" + save_loc + "_gps.txt"; 
-  int gps_file = open(gps_path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
-  if (gps_file == -1) {
-      throw std::runtime_error("Failed to open GPS file: " + gps_path);
+  if (save_loc[0] != '/') {
+    save_loc = "../../" + save_loc;
+  }
+  if (gps_save_loc[0] != '/') {
+    gps_save_loc = "../../" + gps_save_loc;
   }
 
-  /*string rf_path = "../../data/" + save_loc + "_rx_samps.dat";
-  int rf_file = open(rf_path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
-  if (rf_file == -1) {
-    throw std::runtime_error("Failed to open RF file: " + rf_path);
-  }*/
+  //string gps_path = save_loc + "_gps_log.txt"; 
+  int gps_file = open(gps_save_loc.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+  if (gps_file == -1) {
+      throw std::runtime_error("Failed to open GPS file: " + gps_save_loc);
+  }
 
-  //boost::asio::posix::stream_descriptor stream{ioservice, STDOUT_FILENO};
   boost::asio::posix::stream_descriptor gps_stream{ioservice, gps_file};
   auto gps_asio_handler = [](const boost::system::error_code& ec, std::size_t) {
     if (ec.value() != 0) {
       cout << "GPS write error: " << ec.message() << endl;
     }
   };
-
-  /*boost::asio::posix::stream_descriptor rf_stream{ioservice, rf_file};
-  auto rf_asio_handler = [](const boost::system::error_code& ec, size_t) {
-    if (ec.value() != 0) {
-      cout << "RF write error: " << ec.message() << endl;
-    }
-  };*/
 
   ioservice.run();
 
@@ -440,7 +439,16 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // open file for writing rx samples
   ofstream outfile;
-  outfile.open("../../data/" + save_loc + "_rx_samps.bin", ofstream::binary);
+  int save_file_index = 0;
+  string current_filename = save_loc;
+  if (max_chirps_per_file > 0) {
+    // Breaking into multiple files is enabled
+    current_filename = current_filename + "." + to_string(save_file_index);
+  }
+
+  // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+  cout << "[OPEN FILE] " << current_filename << endl;
+  outfile.open(current_filename, ofstream::binary);
   /*ofstream gpsfile;
   if (clk_ref == "gpsdo") {  
     gpsfile.open("../../data/gps_" + save_loc + ".txt", ofstream::binary);
@@ -460,6 +468,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   if (num_pulses < 0) {
     cout << "num_pulses is < 0. Will continue to send chirps until stopped with Ctrl-C." << endl;
   }
+
+  // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+  cout << "[START] Beginning main loop" << endl;
 
   //for (int i = 0; i < num_pulses; i += num_presums) {
   int chirps_sent = 0;
@@ -483,7 +494,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
       rx_stream->issue_stream_cmd(stream_cmd);
 
-      receive_samples(rx_stream, num_rx_samps, rx_sample);
+      receive_samples(rx_stream, num_rx_samps, sample_sum, chirps_sent);
 
       // get gps data
       if (clk_ref == "gpsdo" && ((chirps_sent % 2000) == 0)) {
@@ -492,23 +503,23 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       }
 
       if (error_state) {
-        cout << "Error occured. Trying to reset." << endl;
+        //cout << "Error occured. Trying to reset." << endl;
         error_count++;
 
-        if (clk_ref == "gpsdo") {
+        time_offset = time_offset + 2*pulse_rep_int;
+        
+	if (clk_ref == "gpsdo") {
           boost::asio::async_write(gps_stream, boost::asio::buffer("RF ERROR\n"), gps_asio_handler);
         }
 
-        //time_offset = time_offset + 2*pulse_rep_int;
         error_state = false;
       }
 
-      cout << "Received chirp " << chirps_sent << " [samples: " << num_rx_samps << "]" << endl;
+      //cout << "Received chirp " << chirps_sent << " [samples: " << num_rx_samps << "]" << endl;
 
-
-      for (int n = 0; n < num_rx_samps; n++) {
-        sample_sum[n] += rx_sample[n];
-      }
+      // for (int n = 0; n < num_rx_samps; n++) {
+      //   sample_sum[n] += rx_sample[n];
+      // }
 
       chirps_sent++;
 
@@ -519,10 +530,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
         cout << "[RX] Stop signal set during inner loop. Breaking from inner loop." << endl;
         break;
       }
-    } // then take average of coherently summed samples
-    /*for (int n = 0; n < num_rx_samps; n++) {
-      sample_sum[n] = sample_sum[n] / ((float)num_presums);
-    }*/
+    }
 
     // check if someone wants to stop
     if (stop_signal_called) {
@@ -549,6 +557,19 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       //gps_buffer = uv_buf_init((char*)gps_data.c_str(), sizeof(gps_data));
     }
 
+    if ( (max_chirps_per_file > 0) && (int(chirps_sent / max_chirps_per_file) > save_file_index)) {
+      outfile.close();
+      // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+      cout << "[CLOSE FILE] " << current_filename << endl;
+      
+      save_file_index++;
+      current_filename = save_loc + "." + to_string(save_file_index);
+
+      // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+      cout << "[OPEN FILE] " << current_filename << endl;
+      outfile.open(current_filename, ofstream::binary);
+    }
+    
     // clear the matrices holding the sums
     fill(sample_sum.begin(), sample_sum.end(), complex<float>(0,0));
   }
@@ -557,12 +578,13 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   cout << "[RX] Closing output file." << endl;
   outfile.close();
+  cout << "[CLOSE FILE] " << current_filename << endl;
+  
   /*if (gpsfile.is_open()) {
     gpsfile.close();
   }*/
 
   gps_stream.close();
-  //rf_stream.close();
 
   cout << "[RX] Error count: " << error_count << endl;
   
@@ -585,7 +607,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
   /*** TX SETUP ***/
 
   // stream arguments for both tx and rx
-  stream_args_t stream_args("fc32", "sc16");
+  stream_args_t stream_args("fc32", otw_format);
   stream_args.channels = tx_channel_nums;
 
   // tx streamer
@@ -627,7 +649,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
     double time_ms;
 
     time_ms = (time_spec_t(tx_time).get_real_secs()) * 1000.0;
-    cout << boost::format("Scheduling chirp %d TX for %0.3f ms\n") % chirps_sent % time_ms;
+    //cout << boost::format("Scheduling chirp %d TX for %0.3f ms\n") % chirps_sent % time_ms;
 
     transmit_samples(tx_stream, tx_buff, time_spec_t(tx_time),
         num_tx_samps);
@@ -676,7 +698,7 @@ void transmit_samples(tx_streamer::sptr& tx_stream,
  * RECEIVE_SAMPLES
  */
 void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
-    vector<complex<float>>& res){
+    vector<complex<float>>& res, int chirp_num){
 
   // meta data holder
   rx_metadata_t md;
@@ -702,15 +724,17 @@ void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
 
     // errors
     if (md.error_code != rx_metadata_t::ERROR_CODE_NONE){
-      cout << "WARNING: Receiver error: " << md.strerror() << endl;
+      // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+      cout << "[ERROR] (Chirp " << chirp_num << ") Receiver error: " << md.strerror() << "\n";
       // throw std::runtime_error(str(boost::format(
       //   "Receiver error %s") % md.strerror()));
       error_state = true;
       return;
     } else {
-      for (int i = 0; i < n_samps; i++) { // TODO: this feels inefficient 
-        res[num_acc_samps + i] = buff[i]; 
-      }
+      transform(res.begin()+num_acc_samps, res.begin()+num_acc_samps+n_samps, buff.begin(), res.begin()+num_acc_samps, plus<complex<float>>());
+      // for (int i = 0; i < n_samps; i++) { // TODO: this feels inefficient 
+      //   res[num_acc_samps + i] = buff[i]; 
+      // }
       num_acc_samps += n_samps;
     }
   }

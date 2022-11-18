@@ -75,7 +75,7 @@ def update_led_state():
 def log_output_from_usrp(out, file_out):
     global current_state
     for line in iter(out.readline, ''):
-        if (current_state != "saving") and line.startswith("Received chirp"):
+        if (current_state != "saving") and (line.startswith("Received chirp") or line.startswith("[START]")):
             current_state = "recording"
         file_out.write(f"[{time.time():0.3f}] \t{line}")
         print(f"UHD output: \t{line}", end="")
