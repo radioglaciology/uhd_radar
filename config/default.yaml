@@ -6,7 +6,8 @@ GENERATE:
     chirp_type: 'linear'             # Can be 'linear'
     chirp_bandwidth: 56e6            # [Hz]
     window: 'rectangular'            # Window function applied to the chirp
-    chirp_length: &chirp_len 50e-6    # [s]
+    chirp_length: &chirp_len 10e-6    # [s] chirp length without zero padding
+    pulse_length: &pulse_len 10e-6    # [s] total pulse length (chirp + symmetric zero padding)    
     out_file: &ch_sent "data/chirp.bin"   # The name of the output binary file
     show_plot: False                 # Display a time-domain plot of the generated chirp
 
@@ -43,7 +44,7 @@ RF1:                     # parameters for second RF channel
     rx_ant: "RX2"
 CHIRP:
     time_offset: 1       # Time before first receive [s]
-    tx_duration: *chirp_len # Transmission duration [s]
+    tx_duration: *pulse_len # Transmission duration [s]
     rx_duration: 150e-6   # Receive duration [s]
     tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
