@@ -8,6 +8,8 @@ archive/
 .idea/*
 .DS_Store
 uhd_stdout.log
+calibration/
+postprocessing/*.png
 *.tmp
 
 # Python

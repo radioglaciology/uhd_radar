@@ -16,10 +16,7 @@ def generate_chirp(config):
     chirp_length = gen_params["chirp_length"]
     pulse_length = gen_params["pulse_length"]
 
-    print("--- Loaded constants from config.yaml ---")
-
     # Build chirp
-    print("--- Building Chirp ---")
 
     end_freq = chirp_bandwidth / 2 # Chirp goes from -BW/2 to BW/2
     start_freq = -1 * end_freq
