@@ -10,6 +10,7 @@ archive/
 uhd_stdout.log
 calibration/
 postprocessing/*.png
+*.tmp
 
 # Python
 
