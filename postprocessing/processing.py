@@ -1,8 +1,124 @@
 import numpy as np
-import scipy.signal as sp
+import scipy.signal
 import matplotlib.pyplot as plt
 import os
 import re
+from ruamel.yaml import YAML as ym
+
+def load_config(prefix, modifications = {}):
+    # By default, assume this is just the prefix and add "_config.yaml"
+    # but if it already ends with ".yaml", skip this
+    if not prefix.endswith(".yaml"):
+        prefix = prefix + "_config.yaml"
+
+    yaml = ym()
+    with open(prefix) as stream:
+        config = yaml.load(stream)
+
+    # Apply modifications to config from the nested dictionary modifications
+    for key in modifications:
+        if type(modifications[key]) is dict:
+            for subkey in modifications[key]:
+                config[key][subkey] = modifications[key][subkey]
+        else:
+            config[key] = modifications[key]
+
+    return config
+
+def load_radar_data(prefix, load_start_seconds=0, max_seconds_to_load=60*100, max_chunk_size_samples=int(2e8), error_behavior=None, debug=False):
+    rx_samps = prefix + "_rx_samps.bin"
+    log_file = prefix + "_uhd_stdout.log"
+    
+    config = load_config(prefix)
+    rx_len_samples = int(config['CHIRP']['rx_duration'] * config['GENERATE']['sample_rate'])
+    
+    max_file_size_bytes = rx_len_samples*int(1/config['CHIRP']['pulse_rep_int'])*8*max_seconds_to_load
+    load_start_bytes = rx_len_samples*int(1/config['CHIRP']['pulse_rep_int'])*8*load_start_seconds
+
+    file_size_bytes = os.path.getsize(rx_samps) - load_start_bytes
+    if file_size_bytes > max_file_size_bytes:
+        print(f"WARNING: File is {file_size_bytes/(2**30):.2f} GB ({file_size_bytes / (rx_len_samples*int(1/config['CHIRP']['pulse_rep_int'])*2):.2f} seconds). Only loading the first {max_seconds_to_load} seconds.")
+        file_size_bytes = max_file_size_bytes
+
+    rx_sig = np.zeros((file_size_bytes//8,), dtype=np.csingle)
+    for start_offset in np.arange(0, file_size_bytes, max_chunk_size_samples*8, dtype=np.int64):
+        if start_offset + max_chunk_size_samples*8 > file_size_bytes:
+            rx_sig[(start_offset//8):] = extractSig(rx_samps, count=(file_size_bytes-start_offset)//4, offset=load_start_bytes+start_offset)
+        else:
+            rx_sig[(start_offset//8):((start_offset//8)+(max_chunk_size_samples))] = extractSig(rx_samps, count=max_chunk_size_samples*2, offset=load_start_bytes+start_offset)
+
+    # Reshape data
+    
+    n_rxs = len(rx_sig) // rx_len_samples
+    rx_sig_reshaped = np.transpose(np.reshape(rx_sig, (n_rxs, rx_len_samples), order='C'))
+
+    if debug:
+        print(f"len(rx_sig): {len(rx_sig)}")
+        print(f"n_rxs: {n_rxs}")
+        print(f"rx_sig shape: {np.shape(rx_sig)}")
+        print(f"rx_sig_reshaped shape: {np.shape(rx_sig_reshaped)}")
+
+    slow_time = np.linspace(0, config['CHIRP']['pulse_rep_int']*config['CHIRP']['num_presums']*n_rxs, np.shape(rx_sig_reshaped)[1])
+
+    # Extract log information about errors and start timestamp
+
+    errors = None
+    start_timestamp = None
+
+    if os.path.exists(log_file):
+        errors = {}
+        
+        log_f = open(log_file, 'r')
+        log = log_f.readlines()
+        
+        for idx, line in enumerate(log):
+            if "Receiver error:" in line:
+                error_code = re.search("(?:Receiver error: )([\w_]+)", line).groups()[0]
+                old_style_regex_search = re.search("(?:Scheduling chirp )([\d]+)", log[idx-1])
+                if old_style_regex_search is not None:
+                    chirp_idx = int(re.search("(?:Scheduling chirp )([\d]+)", log[idx-1]).groups()[0])
+                else:
+                    chirp_idx = int(re.search("(?:Chirp )([\d]+)", line).groups()[0])
+                errors[chirp_idx] = error_code
+                if error_code != "ERROR_CODE_LATE_COMMAND":
+                    print(f"WARNING: Uncommon error in the log: {error_code} (on chirp {chirp_idx})")
+                    print(f"Full message: {line}")
+            if ("[START]" in line) or ("Scheduling chirp 0 RX" in line):
+                start_timestamp = float(re.search("(?:\[)([\d]+\.[\d]+)", line).groups()[0])
+    else:
+        print(f"WARNING: No log file found. This is fine, but checks for error codes will be disabled.")
+        print(f"(Looking for a log file in: {log_file})")
+
+    # Handle errors
+
+    # Choose what to do with chirps with a reported error (usually ERROR_CODE_LATE_COMMAND)
+    # Options are:
+    # None - do nothing
+    # 'zeros' - replace with zeros
+    # 'remove' - remove them from the rx_sig_reshaped array
+
+    if errors is None:
+        if error_behavior is not None:
+            print(f"WARNING: Requested doing something with errors but no log file was loaded. Defaulting to doing nothing.")
+    elif error_behavior == 'zeros':
+        error_idxs = np.array(list(errors.keys()))
+        rx_sig_reshaped[:,error_idxs] = 0
+    elif error_behavior == 'remove':
+        error_idxs = np.array(list(errors.keys()))
+        all_idxs = np.arange(rx_sig_reshaped.shape[1])
+        keep_idxs = [x for x in all_idxs if x not in error_idxs]
+
+        rx_sig_reshaped = rx_sig_reshaped[:, keep_idxs]
+        n_rxs = len(keep_idxs)
+
+        slow_time = slow_time[keep_idxs]
+        
+    if debug:
+        print(f"n_rxs: {n_rxs}")
+        print(f"rx_sig_reshaped shape: {np.shape(rx_sig_reshaped)}")
+        print(f"Extracted start timestamp: {start_timestamp}")
+
+    return slow_time, config['GENERATE']['sample_rate'], rx_sig_reshaped
 
 # This function extracts the complex signal stored in a bin file.
 # The format of the bin file is <1st real><1st imag><2nd real><2nd imag>
@@ -42,6 +158,36 @@ def loadSamplesFromFile(filename, config, reshape=True, max_chunk_size=int(5e8),
 
 
     return rx_sig
+
+def stack(radar_data, n):
+    radar_data_stacked = np.zeros_like(radar_data, shape=(np.shape(radar_data)[0], np.shape(radar_data)[1]//n))
+    for out_idx, start_idx in enumerate(np.arange(0, np.shape(radar_data)[1], n)):
+        radar_data_stacked[:,out_idx] = np.mean(radar_data[:,start_idx:(start_idx+n)], axis=1)
+    return radar_data_stacked
+
+def pulse_compress(radar_data, chirp, fs, upsampling=1, zero_sample_idx=0):
+    if upsampling > 1:
+        corr_sig = scipy.signal.resample_poly(corr_sig, upsampling, 1)
+    else:
+        corr_sig = chirp
+
+    if len(radar_data.shape) == 1: # If 1 dimensional, assume it's a single trace
+        radar_data = np.expand_dims(radar_data, axis=1)
+
+    xcorr_results = np.zeros((((np.shape(radar_data)[0]*upsampling)-len(corr_sig))+1, np.shape(radar_data)[1]), dtype=np.csingle)
+    
+    fast_time = np.linspace(0, np.shape(xcorr_results)[0]/(fs*upsampling), np.shape(xcorr_results)[0])
+    fast_time = fast_time - fast_time[zero_sample_idx*upsampling]
+
+    for res_idx in range(np.shape(xcorr_results)[1]):
+        stacked = radar_data[:, res_idx]
+        if upsampling > 1:
+            stacked = scipy.signal.resample_poly(stacked, upsampling, 1)
+
+        xcorr_results[:, res_idx] = scipy.signal.correlate(stacked, corr_sig, mode='valid', method='auto') / np.sum(np.abs(corr_sig)**2)
+     
+    return fast_time, xcorr_results
+
 
 # This function plots a TX or RX complex chirp in an Voltage vs. Time (ms) graph
 # -----
