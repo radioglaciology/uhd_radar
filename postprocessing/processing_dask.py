@@ -175,7 +175,7 @@ def pulse_compress(data, chirp, fs, zero_sample_idx=0):
     # full result.
 
     pc = da.apply_along_axis(
-        lambda x: scipy.signal.correlate(x, chirp, mode='valid'),
+        lambda x: scipy.signal.correlate(x, chirp, mode='valid') / np.sum(np.abs(chirp)**2),
         axis=0, arr=data.data,
         dtype=data.dtype, shape=(data.shape[0]-len(chirp)+1,)
     )
