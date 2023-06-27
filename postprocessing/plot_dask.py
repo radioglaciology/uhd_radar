@@ -12,16 +12,16 @@ def plot_radargram(pulse_compressed, figsize=None, vmin=-70, vmax=-40, ylims=(65
             
     fig, ax = plt.subplots(1,1, figsize=figsize)
 
-    return_power = 20*np.log10(np.abs(pulse_compressed.compute()))
+    return_power = 20*np.log10(np.abs(pulse_compressed["radar_data"].compute()))
 
     if sig_speed:
-        y_axis = pulse_compressed.fast_time * (sig_speed / 2)
+        y_axis = pulse_compressed.travel_time * (sig_speed / 2)
         y_axis_label = 'Distance to reflector [m]'
     else:
-        y_axis = pulse_compressed.fast_time
-        y_axis_label = 'One-way travel time [s]'
+        y_axis = pulse_compressed.travel_time
+        y_axis_label = 'Two-way travel time [s]'
     
-    p = ax.pcolormesh(pulse_compressed.slow_time, y_axis, return_power, shading='auto', cmap='inferno', vmin=vmin, vmax=vmax)
+    p = ax.pcolormesh(pulse_compressed.slow_time, y_axis, return_power.T, cmap='inferno', vmin=vmin, vmax=vmax, shading='nearest')
     clb = fig.colorbar(p, ax=ax)
     clb.set_label('Power [dB]')
     ax.set_xlabel('Time [s]')

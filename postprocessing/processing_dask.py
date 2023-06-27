@@ -10,52 +10,61 @@ import scipy.signal
 
 import processing as old_processing
 
-# Write docstring
-
-
-def load_errors_from_log(log_file):
+def process_stdout_log(log):
     """
-    Load timestamp and ERROR_CODE_LATE_COMMAND information from a UHD stdout log file.
+    Load timestamp and ERROR_CODE_LATE_COMMAND information from UHD radar code stdout.
     Returns the starting timestamp and a dictionary of errors, where the keys are
     chirp indices and the values are error codes.
     """
-    errors = None
+    errors = {}
     start_timestamp = None
 
-    if os.path.exists(log_file):
-        errors = {}
+    for idx, line in enumerate(log.splitlines()):
+        if "Receiver error:" in line:
+            error_code = re.search(
+                "(?:Receiver error: )([\w_]+)", line).groups()[0]
+            old_style_regex_search = re.search(
+                "(?:Scheduling chirp )([\d]+)", log[idx-1])
+            if old_style_regex_search is not None:
+                chirp_idx = int(
+                    re.search("(?:Scheduling chirp )([\d]+)", log[idx-1]).groups()[0])
+            else:
+                chirp_idx = int(
+                    re.search("(?:Chirp )([\d]+)", line).groups()[0])
+            errors[chirp_idx] = error_code
+            if error_code != "ERROR_CODE_LATE_COMMAND":
+                print(
+                    f"WARNING: Uncommon error in the log: {error_code} (on chirp {chirp_idx})")
+                print(f"Full message: {line}")
+        if ("[START]" in line) or ("Scheduling chirp 0 RX" in line):
+            start_timestamp = float(
+                re.search("(?:\[)([\d]+\.[\d]+)", line).groups()[0])
 
-        log_f = open(log_file, 'r')
-        log = log_f.readlines()
-
-        for idx, line in enumerate(log):
-            if "Receiver error:" in line:
-                error_code = re.search(
-                    "(?:Receiver error: )([\w_]+)", line).groups()[0]
-                old_style_regex_search = re.search(
-                    "(?:Scheduling chirp )([\d]+)", log[idx-1])
-                if old_style_regex_search is not None:
-                    chirp_idx = int(
-                        re.search("(?:Scheduling chirp )([\d]+)", log[idx-1]).groups()[0])
-                else:
-                    chirp_idx = int(
-                        re.search("(?:Chirp )([\d]+)", line).groups()[0])
-                errors[chirp_idx] = error_code
-                if error_code != "ERROR_CODE_LATE_COMMAND":
-                    print(
-                        f"WARNING: Uncommon error in the log: {error_code} (on chirp {chirp_idx})")
-                    print(f"Full message: {line}")
-            if ("[START]" in line) or ("Scheduling chirp 0 RX" in line):
-                start_timestamp = float(
-                    re.search("(?:\[)([\d]+\.[\d]+)", line).groups()[0])
-
-        log_f.close()
-        return start_timestamp, errors
-    else:
-        raise FileNotFoundError(f"Log file not found: {log_file}")
+    return start_timestamp, errors
 
 
 def save_radar_data_to_zarr(prefix, skip_if_cached=True, zarr_base_location=None, expected_base_name_regex='\d{8}_\d{6}', log_required=True, dryrun=False):
+    """
+    Load raw radar data from a given prefix, and save it to a zarr file.
+    
+    `prefix` is the path to the raw data, without the _rx_samps.bin/_config.yaml/_uhd_stdout.log suffixes.
+    (`log_required` can be set to False if no log file is available)
+
+    As a safety precaution, this function will check that the prefix basename matches the `expected_base_name_regex` expression.
+    If using the python code to run the radar system, the prefixes will be of the form YYYYMMDD_HHMMSS,
+    which is what the default regex is looking for. `expected_base_name_regex` can be set to None to skip this check.
+    
+    The location for the zarr file is the same directory containing the prefix, unless you provide
+    an alternate `zarr_base_location` argument.
+
+    By default, this will first look for an existing zarr file that matches the expected filename.
+    If you want to force reprocessing, set `skip_if_cached` to False.
+
+    Setting `dryrun` to True will cause this function to return the path to the zarr file
+    that it would have created without actually writing anything to disk.
+    
+    Returns the path to the zarr file only. You are responsible for re-loading the data from the zarr file.
+    """
 
     #
     # Validation and file name generation
@@ -113,12 +122,15 @@ def save_radar_data_to_zarr(prefix, skip_if_cached=True, zarr_base_location=None
                 f"Log file not found: {log_file}. If a log file is not required, set log_required=False")
 
     # Save radar_data, slow_time, and fs to an xarray datarray
-    data = xr.DataArray(
-        data=radar_data,
-        name="radar_data",
+    data = xr.Dataset(
+        data_vars={
+            "radar_data": (["sample_idx", "pulse_idx"], radar_data, {"description": "complex radar data"}),
+        },
         coords={
-            "fast_time": (["fast_time"], fast_time, {"description": "relative time in seconds"}),
-            "slow_time": (["slow_time"], slow_time, {"description": "time in seconds"}),
+            "sample_idx": ("sample_idx", np.arange(radar_data.shape[0]), {"description": "Index of this sample in the chirp"}),
+            "fast_time": ("sample_idx", fast_time, {"description": "time relative to start of this recording interval in seconds"}),
+            "pulse_idx": ("pulse_idx", np.arange(radar_data.shape[1]), {"description": "Index of this chirp in the sequence"}),
+            "slow_time": ("pulse_idx", slow_time, {"description": "time in seconds"}),
         },
         attrs={
             "config": config,
@@ -127,6 +139,9 @@ def save_radar_data_to_zarr(prefix, skip_if_cached=True, zarr_base_location=None
             "basename": basename
         }
     )
+
+    # TODO: Due to the currently hard-coded increase in pulse repetition interval after an error,
+    # the slow time may not be correct.
 
     if not dryrun:
         with dask.config.set(scheduler='single-threaded'):
@@ -138,61 +153,92 @@ def save_radar_data_to_zarr(prefix, skip_if_cached=True, zarr_base_location=None
     return zarr_path
 
 
-# Leftover error handling stuff TODO TODO TODO
-# # Load errors from log file
-#     timestamp, errors = load_errors_from_log(log_file)
-#     error_idxs = np.array(list(errors.keys()))
-#     if error_fill_value:
-#         radar_data[:, error_idxs] = error_fill_value
+def fill_errors(data, error_fill_value=np.nan):
+    """
+    Replace all values from chirps with a reported error with the specified error_fill_value
+    """
+    _, errors = process_stdout_log(data.attrs["stdout_log"])
+    result = data.copy()
+    error_idxs = np.array(list(errors.keys()))
+    result["radar_data"][{"pulse_idx": error_idxs}] = error_fill_value
+    return result
 
-#     if remove_errors:
-#         all_idxs = np.arange(radar_data.shape[1])
-#         keep_idxs = [x for x in all_idxs if x not in error_idxs]
+def remove_errors(data, skip_if_already_complete=True):
+    """
+    Remove received data associated with chrips with a reported error
+    """
 
-#         radar_data = radar_data[:, keep_idxs]
-#         n_rxs = len(keep_idxs)
+    if "errors_removed" in data.attrs:
+        if skip_if_already_complete:
+            print("Errors have already been removed from this data, skipping")
+            return data
+        else:
+            raise ValueError("Errors have already been removed from this data")
 
-#         slow_time = slow_time[keep_idxs]
+    _, errors = process_stdout_log(data.attrs["stdout_log"])
+    result = data.copy()
+    all_idxs = np.arange(data["radar_data"].shape[1])
+    keep_idxs = [x for x in all_idxs if x not in list(errors.keys())]
 
-#     # TODO: Fix slow time in case of errors
+    result = data[{'pulse_idx': keep_idxs}]
+    result.attrs["errors_removed"] = True
+    return result
 
-def stack(data, n_stack):
+
+def stack(data: xr.Dataset, n_stack: int):
     """
     Stack (average) data along the slow time axis in chunks of n_stack chirps
+    All relevant coordinates (i.e. slow_time, pulse_idx) are taken as their
+    minimum value in the stack.
     """
-    return data.coarsen(slow_time=n_stack, boundary='trim').mean()
+    return data.coarsen({'pulse_idx': n_stack},
+                 boundary='trim',
+                 coord_func='min').mean()
 
 
-def pulse_compress(data, chirp, fs, zero_sample_idx=0):
-    if len(data.shape) == 1:  # If 1 dimensional, assume it's a single trace
-        data = da.expand_dims(data, axis=1)
+def pulse_compress(data: xr.Dataset, chirp, fs: float, zero_sample_idx: int=0, signal_speed: float=None):
+    """
+    Apply pulse compression using samples from `chirp` to each pulse from `data`.
+    Zero travel time is assumed to be at `zero_sample_idx` in the chirp.
+    If a `signal_speed` is provided, this is used to create a secondary coordinate
+    `reflection_distance` which is the distance from the radar to the reflection point
+    assuming a constant signal speed.
+    """
 
-    # We use the `apply_along_axis` function directly from Dask Array
-    # Providing the dtype and shape is necessary because the auto-inference
-    # gets the size wrong.
-    # Documentation is a bit confusion, but `shape` needs to be the shape of
-    # each individual output of the lambda function, not the shape of the
-    # full result.
+    output_len = data["radar_data"].shape[0]-len(chirp)+1
+    travel_time = np.linspace(0, output_len/fs, output_len)
+    travel_time = travel_time - travel_time[zero_sample_idx]
 
-    pc = da.apply_along_axis(
-        lambda x: scipy.signal.correlate(x, chirp, mode='valid') / np.sum(np.abs(chirp)**2),
-        axis=0, arr=data.data,
-        dtype=data.dtype, shape=(data.shape[0]-len(chirp)+1,)
-    )
+    coords = {"travel_time": travel_time}
+    if signal_speed is not None:
+        coords['reflection_distance'] = ("travel_time", travel_time * (signal_speed/2))
 
-    fast_time = np.linspace(0, pc.shape[0]/fs, pc.shape[0])
-    fast_time = fast_time - fast_time[zero_sample_idx]
+    # This code is kind of a nightmare, but it should be a fairly efficient way
+    # to do this.
+    # This function call applies the lambda function (first argument) to each
+    # pulse in the data.
+    # If you want to understand all the other parameters, I recommend starting
+    # with these pages:
+    # https://docs.xarray.dev/en/stable/examples/apply_ufunc_vectorize_1d.html
+    # https://docs.xarray.dev/en/stable/generated/xarray.apply_ufunc.html
 
-    result = xr.DataArray(
-        data=pc,
-        name="pulse_compressed",
-        coords={
-            "fast_time": (["fast_time"], fast_time, {"description": "one-way travel time in seconds"}),
-            "slow_time": data["slow_time"]
-        },
-        attrs=data.attrs
-    )
+    compressed = xr.apply_ufunc(
+        lambda x: scipy.signal.correlate(
+                x, chirp, mode='valid') / np.sum(np.abs(chirp)**2),
+        data,
+        input_core_dims=[['sample_idx']], # The dimension operated over -- aka "don't vectorize over this"
+        output_core_dims=[["travel_time"]], # The output dimensions of the lambda function itself
+        exclude_dims=set(("sample_idx",)), # Dimensions to not vectorize over
+        vectorize=True, # Vectorize other dimensions using a call to np.vectorize
+        dask="parallelized", # Allow dask to chunk and parallelize the computation
+        output_dtypes=[data["radar_data"].dtype], # Needed for dask: explicitly provide the output dtype
+        dask_gufunc_kwargs={"output_sizes": {'travel_time': output_len}} # Also needed for dask:
+        # explicitly provide the output size of the lambda function. See
+        # https://docs.dask.org/en/stable/generated/dask.array.gufunc.apply_gufunc.html
+    ).assign_coords(coords) # And finally add coordinate(s) corresponding to the new "travel_time" dimension
 
-    result.attrs["pule_compress"] = {"fs": fs, "chirp": chirp, "zero_sample_idx": zero_sample_idx}
-
-    return result
+    # Save the input parameters for future reference
+    compressed.attrs["pulse_compress"]={
+            "fs": fs, "chirp": chirp, "zero_sample_idx": zero_sample_idx, "signal_speed": signal_speed}
+    
+    return compressed
