@@ -6,6 +6,7 @@
 #include <boost/program_options.hpp>
 #include <boost/format.hpp>
 #include <boost/thread.hpp>
+#include <boost/chrono.hpp>
 #include <boost/thread/barrier.hpp>
 #include <boost/algorithm/string.hpp>
 #include <iostream>
@@ -13,6 +14,7 @@
 #include <csignal>
 #include <complex>
 #include <thread>
+#include <mutex>
 #include <cstdlib>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/posix/stream_descriptor.hpp>
@@ -29,14 +31,7 @@ using namespace uhd;
 /*
  * PROTOTYPES
  */
-void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums);
-  
-void transmit_samples(tx_streamer::sptr& tx_stream,
-  vector<complex<float>>& tx_buff, time_spec_t tx_time,
-  size_t num_tx_samps);
-  
-void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
-    vector<complex<float>>& res, int chirp_num);
+void transmit_worker(tx_streamer::sptr& tx_stream, rx_streamer::sptr& rx_stream);
 
 /*
  * SIG INT HANDLER
@@ -45,13 +40,6 @@ static bool stop_signal_called = false;
 void sig_int_handler(int) {
   stop_signal_called = true;
 }
-
-/*
- * Thread barriers
- */
-boost::barrier sent_bar(2);
-boost::barrier recv_bar(2);
-boost::barrier end_bar(2);
 
 /*** CONFIGURATION PARAMETERS ***/
 
@@ -92,7 +80,6 @@ double tr_off_trail;
 double pulse_rep_int;
 double tx_lead;
 int num_pulses;
-int num_presums;
 int max_chirps_per_file;
 
 // FILENAMES
@@ -100,14 +87,18 @@ string chirp_loc;
 string save_loc;
 string gps_save_loc;
 
-
 // Calculated Parameters
 double tr_off_delay; // Time before turning off GPIO
 size_t num_tx_samps; // Total samples to transmit per chirp
 size_t num_rx_samps; // Total samples to receive per chirp
 
-// Error case [TODO]
-bool error_state = false;
+// Global state
+long int pulses_scheduled = 0;
+long int pulses_received = 0;
+long int error_count = 0;
+
+// Cout mutex
+std::mutex cout_mutex;
 
 /*
  * UHD_SAFE_MAIN
@@ -167,7 +158,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   pulse_rep_int = chirp["pulse_rep_int"].as<double>();
   tx_lead = chirp["tx_lead"].as<double>();
   num_pulses = chirp["num_pulses"].as<int>();
-  num_presums = chirp["num_presums"].as<int>();
+  //num_presums = chirp["num_presums"].as<int>(); // TODO: No more presum support
 
   YAML::Node files = config["FILES"];
   chirp_loc = files["chirp_loc"].as<string>();
@@ -344,9 +335,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   cout << "INFO: Number of TX samples: " << num_tx_samps << endl;
   cout << "INFO: Number of RX samples: " << num_rx_samps << endl << endl;
 
-  // stream arguments for both tx and rx
-  stream_args_t stream_args("fc32", otw_format);
-
   // Check Ref and LO Lock detect
   vector<std::string> tx_sensor_names, rx_sensor_names;
   for (size_t ch = 0; ch < tx_channel_nums.size(); ch++) {
@@ -395,14 +383,37 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   //cout << "AMP_GPIO_MASK: " << bitset<32>(AMP_GPIO_MASK) << endl;
 
   // turns external ref out port on or off
-  usrp->set_clock_source_out(ref_out);
+  //usrp->set_clock_source_out(ref_out);
   
   // update the offset time for start of streaming to be offset from the current usrp time
   time_offset = time_offset + time_spec_t(usrp->get_time_now()).get_real_secs();
 
+  /*** TX SETUP ***/
+
+  // Stream formats
+  stream_args_t tx_stream_args("fc32", otw_format); // TODO: Change over to sc16
+  tx_stream_args.channels = tx_channel_nums;
+
+  // tx streamer
+  tx_streamer::sptr tx_stream = usrp->get_tx_stream(tx_stream_args);
+
+  cout << "INFO: tx_stream get_max_num_samps: " << tx_stream->get_max_num_samps() << endl;
+
+  /*** RX SETUP ***/
+
+  stream_args_t rx_stream_args("fc32", otw_format); // TODO switch to sc16
+
+  // rx streamer
+  rx_stream_args.channels = rx_channel_nums;
+  rx_streamer::sptr rx_stream = usrp->get_rx_stream(rx_stream_args);
+
+  cout << "INFO: rx_stream get_max_num_samps: " << rx_stream->get_max_num_samps() << endl;
+
   /*** SPAWN THE TX THREAD ***/
   boost::thread_group transmit_thread;
-  transmit_thread.create_thread(boost::bind(&transmit_worker, usrp, tx_channel_nums));
+  transmit_thread.create_thread(boost::bind(&transmit_worker, tx_stream, rx_stream));
+
+  //////////////////////////////////////////////////////////////////////////////////////////
 
   /*** FILE WRITE SETUP ***/
   boost::asio::io_service ioservice;
@@ -414,28 +425,22 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     gps_save_loc = "../../" + gps_save_loc;
   }
 
-  //string gps_path = save_loc + "_gps_log.txt"; 
-  int gps_file = open(gps_save_loc.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
-  if (gps_file == -1) {
-      throw std::runtime_error("Failed to open GPS file: " + gps_save_loc);
-  }
+  // //string gps_path = save_loc + "_gps_log.txt"; 
+  // int gps_file = open(gps_save_loc.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+  // if (gps_file == -1) {
+  //     throw std::runtime_error("Failed to open GPS file: " + gps_save_loc);
+  // }
 
-  boost::asio::posix::stream_descriptor gps_stream{ioservice, gps_file};
-  auto gps_asio_handler = [](const boost::system::error_code& ec, std::size_t) {
-    if (ec.value() != 0) {
-      cout << "GPS write error: " << ec.message() << endl;
-    }
-  };
+  // boost::asio::posix::stream_descriptor gps_stream{ioservice, gps_file};
+  // auto gps_asio_handler = [](const boost::system::error_code& ec, std::size_t) {
+  //   if (ec.value() != 0) {
+  //     cout << "GPS write error: " << ec.message() << endl;
+  //   }
+  // };
 
-  ioservice.run();
+  // ioservice.run();
 
-  /*** RX SETUP ***/
-
-  // (TX setup happens in the TX thread)
-
-  // rx streamer
-  stream_args.channels = rx_channel_nums;
-  rx_streamer::sptr rx_stream = usrp->get_rx_stream(stream_args);
+  
 
   // open file for writing rx samples
   ofstream outfile;
@@ -449,129 +454,100 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
   cout << "[OPEN FILE] " << current_filename << endl;
   outfile.open(current_filename, ofstream::binary);
-  /*ofstream gpsfile;
-  if (clk_ref == "gpsdo") {  
-    gpsfile.open("../../data/gps_" + save_loc + ".txt", ofstream::binary);
-    cout << "[HERE] gps file opened" << endl;
-  }*/
-
-  // set up buffers for rx
-  uhd::rx_metadata_t md;
-  
-  vector<complex<float>> sample_sum(num_rx_samps, 0);
-  vector<complex<float>> rx_sample(num_rx_samps, 0);
-
-
-  int error_count = 0;
 
   /*** RX LOOP AND SUM ***/
   if (num_pulses < 0) {
     cout << "num_pulses is < 0. Will continue to send chirps until stopped with Ctrl-C." << endl;
   }
 
+  string gps_data;
+
+  // receive buffer
+  vector<complex<float>> buff(num_rx_samps); // Buffer sized for one pulse at a time
+  vector<void *> buffs;
+  for (size_t ch = 0; ch < rx_stream->get_num_channels(); ch++) {
+    buffs.push_back(&buff.front()); // TODO: I don't think this actually works for num_channels > 1
+  }
+  size_t n_samps_rx;
+  rx_metadata_t rx_md; // Captures metadata from rx_stream->recv() -- specifically primarily timeouts and other errors
+
   // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
   cout << "[START] Beginning main loop" << endl;
 
-  //for (int i = 0; i < num_pulses; i += num_presums) {
-  int chirps_sent = 0;
-  string gps_data;
-  while ((num_pulses < 0) || (chirps_sent < num_pulses)) {
+  while ((num_pulses < 0) || (pulses_received < num_pulses)) {
 
-    for (int m = 0; m < num_presums; m++) {
-      sent_bar.wait();
+    n_samps_rx = rx_stream->recv(buffs, num_rx_samps, rx_md, 10.0, false); // TODO: Think about timeout
 
-      double rx_time = time_offset + (pulse_rep_int * chirps_sent);
-      double tx_time = rx_time - tx_lead;
-      double time_ms;
+    //cout << "[RX] Received metadata: " << rx_md.to_pp_string() << endl;
 
-      stream_cmd_t stream_cmd(stream_cmd_t::STREAM_MODE_NUM_SAMPS_AND_DONE);
-      stream_cmd.num_samps = num_rx_samps;
-      stream_cmd.stream_now = false;
-      stream_cmd.time_spec = time_spec_t(rx_time);
-
-      time_ms = time_spec_t(rx_time).get_real_secs() * 1000.0;
-      //cout << boost::format("Scheduling chirp %d RX for %0.3f ms\n") % (chirps_sent) % time_ms;
-
-      rx_stream->issue_stream_cmd(stream_cmd);
-
-      receive_samples(rx_stream, num_rx_samps, sample_sum, chirps_sent);
-
-      // get gps data
-      if (clk_ref == "gpsdo" && ((chirps_sent % 2000) == 0)) {
-        gps_data = usrp->get_mboard_sensor("gps_gprmc").to_pp_string();
-        //cout << gps_data << endl;
-      }
-
-      if (error_state) {
-        //cout << "Error occured. Trying to reset." << endl;
-        error_count++;
-
-        time_offset = time_offset + 2*pulse_rep_int;
-        
-	if (clk_ref == "gpsdo") {
-          boost::asio::async_write(gps_stream, boost::asio::buffer("RF ERROR\n"), gps_asio_handler);
-        }
-
-        error_state = false;
-      }
-
-      //cout << "Received chirp " << chirps_sent << " [samples: " << num_rx_samps << "]" << endl;
-
-      // for (int n = 0; n < num_rx_samps; n++) {
-      //   sample_sum[n] += rx_sample[n];
-      // }
-
-      chirps_sent++;
-
-      recv_bar.wait();
-
-      // check if someone wants to stop
-      if (stop_signal_called) {
-        cout << "[RX] Stop signal set during inner loop. Breaking from inner loop." << endl;
-        break;
-      }
+    if (rx_md.error_code != rx_metadata_t::ERROR_CODE_NONE){
+      // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+      cout_mutex.lock();
+      cout << "[ERROR] (Chirp " << pulses_received << ") Receiver error: " << rx_md.strerror() << "\n";
+      cout_mutex.unlock();
+      
+      pulses_received++;
+      error_count++;
+      //continue; // TODO: Think if we want to write to file or not
+    } else {
+      pulses_received++;
+      //cout << "[RX] (Chirp " << pulses_received << ") Received " << n_samps_rx << " samples" << endl;
     }
+    
+
+    //receive_samples(rx_stream, num_rx_samps, sample_sum, chirps_sent);
+
+    // // get gps data
+    // if (clk_ref == "gpsdo" && ((chirps_sent % 2000) == 0)) {
+    //   gps_data = usrp->get_mboard_sensor("gps_gprmc").to_pp_string();
+    //   //cout << gps_data << endl;
+    // }
 
     // check if someone wants to stop
     if (stop_signal_called) {
+      cout_mutex.lock();
       cout << "[RX] Reached stop signal handling for outer RX loop -> break" << endl;
+      cout_mutex.unlock();
       break;
     }
 
     // write summed data to file
     if (outfile.is_open()) {
-      outfile.write((const char*)&sample_sum.front(), 
-        num_rx_samps * sizeof(complex<float>));
-    }
-    //boost::asio::async_write(rf_stream, boost::asio::buffer(sample_sum), rf_asio_handler);
-
-    // write gps string to file
-    if (clk_ref == "gpsdo") {
-      /*gpsfile.write(gps_data.c_str(), sizeof(char) * gps_data.size());
-      gpsfile.write("\n", sizeof(char));
-      cout << "[HERE] writing gps string" << endl;*/
-
-      //cout << "gps data size: " << sizeof(gps_data) << endl;
-      boost::asio::async_write(gps_stream, boost::asio::buffer(gps_data + "\n"), gps_asio_handler);
-
-      //gps_buffer = uv_buf_init((char*)gps_data.c_str(), sizeof(gps_data));
+      outfile.write((const char*)&buff.front(), 
+        n_samps_rx * sizeof(complex<float>));
     }
 
-    if ( (max_chirps_per_file > 0) && (int(chirps_sent / max_chirps_per_file) > save_file_index)) {
+    // // write gps string to file
+    // if (clk_ref == "gpsdo") {
+    //   /*gpsfile.write(gps_data.c_str(), sizeof(char) * gps_data.size());
+    //   gpsfile.write("\n", sizeof(char));
+    //   cout << "[HERE] writing gps string" << endl;*/
+
+    //   //cout << "gps data size: " << sizeof(gps_data) << endl;
+    //   boost::asio::async_write(gps_stream, boost::asio::buffer(gps_data + "\n"), gps_asio_handler);
+
+    //   //gps_buffer = uv_buf_init((char*)gps_data.c_str(), sizeof(gps_data));
+    // }
+
+    if ( (max_chirps_per_file > 0) && (int(pulses_received / max_chirps_per_file) > save_file_index)) {
       outfile.close();
       // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+      cout_mutex.lock();
       cout << "[CLOSE FILE] " << current_filename << endl;
-      
+      cout_mutex.unlock();
+
       save_file_index++;
       current_filename = save_loc + "." + to_string(save_file_index);
 
       // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+      cout_mutex.lock();
       cout << "[OPEN FILE] " << current_filename << endl;
+      cout_mutex.unlock();
       outfile.open(current_filename, ofstream::binary);
     }
     
-    // clear the matrices holding the sums
-    fill(sample_sum.begin(), sample_sum.end(), complex<float>(0,0));
+    // // clear the matrices holding the sums
+    // fill(sample_sum.begin(), sample_sum.end(), complex<int16_t>(0,0));
   }
 
   /*** WRAP UP ***/
@@ -584,7 +560,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     gpsfile.close();
   }*/
 
-  gps_stream.close();
+  //gps_stream.close();
 
   cout << "[RX] Error count: " << error_count << endl;
   
@@ -601,20 +577,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 /*
  * TRANSMIT_WORKER
  */
-void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums)
+void transmit_worker(tx_streamer::sptr& tx_stream, rx_streamer::sptr& rx_stream)
 {
-
-  /*** TX SETUP ***/
-
-  // stream arguments for both tx and rx
-  stream_args_t stream_args("fc32", otw_format);
-  stream_args.channels = tx_channel_nums;
-
-  // tx streamer
-  tx_streamer::sptr tx_stream = usrp->get_tx_stream(stream_args);
-
-  cout << "INFO: get_max_num_samps: " << tx_stream->get_max_num_samps() << endl;
-
   // open file to stream from
   ifstream infile("../../" + chirp_loc, ifstream::binary);
 
@@ -622,7 +586,7 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
   {
     cout << endl
          << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
-    cout << "ERROR! Faild to open chirp.bin input file" << endl;
+    cout << "ERROR! Failed to open chirp.bin input file" << endl;
     cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl
          << endl;
     exit(1);
@@ -631,38 +595,66 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
   vector<complex<float>> tx_buff(num_tx_samps);
   infile.read((char *)&tx_buff.front(), num_tx_samps * sizeof(complex<float>));
 
+  // Transmit metadata structure
+  tx_metadata_t tx_md;
+  tx_md.start_of_burst = true;
+  tx_md.end_of_burst = true;
+  tx_md.has_time_spec = true;
+
+  // Receive command structure
+  stream_cmd_t stream_cmd(stream_cmd_t::STREAM_MODE_NUM_SAMPS_AND_DONE);
+  stream_cmd.num_samps = num_rx_samps;
+  stream_cmd.stream_now = false;
+
   int chirps_sent = 0;
-  while ((num_pulses < 0) || (chirps_sent < num_pulses))
+  double rx_time;
+  size_t n_samp_tx;
+
+  long int last_error_count = 0;
+  double error_delay = 0;
+
+  while ((num_pulses < 0) || (pulses_scheduled < num_pulses))
   {
-    // if (stop_signal_called) { 
-    //   // someone wants to stop, let's try to clean up first
-    //   infile.close();
-    //   sent_bar.wait();
-    //   cout << "[TX] sent_bar cleared" << endl;
-    //   recv_bar.wait();
-    //   cout << "[TX] recv_bar cleared" << endl;
-    //   break;
-    // }
-
-    double rx_time = time_offset + (pulse_rep_int * chirps_sent);
-    double tx_time = rx_time - tx_lead;
-    double time_ms;
-
-    time_ms = (time_spec_t(tx_time).get_real_secs()) * 1000.0;
-    //cout << boost::format("Scheduling chirp %d TX for %0.3f ms\n") % chirps_sent % time_ms;
-
-    transmit_samples(tx_stream, tx_buff, time_spec_t(tx_time),
-        num_tx_samps);
-
-    chirps_sent++;
-
-    if (stop_signal_called) {
-      cout << "[TX] Stop signal set, but waiting for RX thread before quitting..." << endl;
+    /*
+    The idea here is scheduler a handful of chirps ahead to let
+    the transport layer (i.e. libUSB or whatever it is for ethernet)
+    buffering actually do its job.
+    
+    In practice, letting this schedule 10s of pulses ahead seems to
+    perform well. According to the documentation, however, the maximum
+    queue depth is 8 for both the B20x-mini and X310. (And each pulse
+    is two commands -- TX and RX.) So if we're following that, then
+    we should only schedule 6 pulses ahead.
+    */
+    while ((pulses_scheduled - 6) > pulses_received) { // TODO: hardcoded
+      if (stop_signal_called) {
+        cout << "[TX] stop signal called while scheduler thread waiting -> break" << endl;
+        break;
+      }
+      boost::this_thread::sleep_for(boost::chrono::nanoseconds(10));
     }
 
-    // Wait for the chirp to be received
-    sent_bar.wait();
-    recv_bar.wait();
+    if (error_count > last_error_count) {
+      error_delay = (error_count - last_error_count) * 2 * pulse_rep_int;
+      time_offset += error_delay;
+      cout_mutex.lock();
+      cout << "[TX] (Chirp " << pulses_scheduled << ") time_offset increased by " << error_delay << endl;
+      cout_mutex.unlock();
+      last_error_count = error_count;
+    }
+    // TX
+    rx_time = time_offset + (pulse_rep_int * pulses_scheduled); // TODO: How do we track timing
+    tx_md.time_spec = time_spec_t(rx_time - tx_lead);
+    
+    n_samp_tx = tx_stream->send(&tx_buff.front(), num_tx_samps, tx_md, 60); // TODO: Think about timeout
+
+    // RX
+    stream_cmd.time_spec = time_spec_t(rx_time);
+    rx_stream->issue_stream_cmd(stream_cmd);
+
+    //cout << "[TX] Scheduled pulse " << pulses_scheduled << " at " << rx_time << " (n_samp_tx = " << n_samp_tx << ")" << endl;
+
+    pulses_scheduled++;
 
     if (stop_signal_called) {
       cout << "[TX] stop signal called -> break" << endl;
@@ -674,71 +666,4 @@ void transmit_worker(usrp::multi_usrp::sptr usrp, vector<size_t> tx_channel_nums
   infile.close();
   cout << "[TX] Done." << endl;
 
-}
-
-/*
- * TRANSMIT_SAMPLES
- */
-void transmit_samples(tx_streamer::sptr& tx_stream,
-    vector<complex<float>>& tx_buff, time_spec_t tx_time,
-    size_t num_tx_samps) {
-  
-  // meta data holder
-  tx_metadata_t md;
-  md.start_of_burst = true;
-  md.end_of_burst = true;
-  md.has_time_spec = true;
-  md.time_spec = tx_time;
-  
-  // TODO: The timeout shouldn't be hard-coded, but it doesn't really matter
-  size_t n_samp = tx_stream->send(&tx_buff.front(), num_tx_samps, md, 60);
-}
-
-/*
- * RECEIVE_SAMPLES
- */
-void receive_samples(rx_streamer::sptr& rx_stream, size_t num_rx_samps,
-    vector<complex<float>>& res, int chirp_num){
-
-  // meta data holder
-  rx_metadata_t md;
-
-  // receive buffer
-  vector<complex<float>> buff(rx_stream->get_max_num_samps());
-  vector<void *> buffs;
-  for (size_t ch = 0; ch < rx_stream->get_num_channels(); ch++) {
-    buffs.push_back(&buff.front());
-  }
-
-  double timeout = 5; //pulse_rep_int*2; // delay before receive + padding
-
-  size_t num_acc_samps = 0;
-  while(num_acc_samps < num_rx_samps){
-    if (stop_signal_called) {
-
-      break;
-    }
-
-    size_t n_samps = rx_stream->recv(
-        buffs, buff.size(), md, timeout, true);
-
-    // errors
-    if (md.error_code != rx_metadata_t::ERROR_CODE_NONE){
-      // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
-      cout << "[ERROR] (Chirp " << chirp_num << ") Receiver error: " << md.strerror() << "\n";
-      // throw std::runtime_error(str(boost::format(
-      //   "Receiver error %s") % md.strerror()));
-      error_state = true;
-      return;
-    } else {
-      transform(res.begin()+num_acc_samps, res.begin()+num_acc_samps+n_samps, buff.begin(), res.begin()+num_acc_samps, plus<complex<float>>());
-      // for (int i = 0; i < n_samps; i++) { // TODO: this feels inefficient 
-      //   res[num_acc_samps + i] = buff[i]; 
-      // }
-      num_acc_samps += n_samps;
-    }
-  }
-
-  if (num_acc_samps < num_rx_samps) cerr << "Receive timeout before all "
-    "samples received..." << endl;
 }
