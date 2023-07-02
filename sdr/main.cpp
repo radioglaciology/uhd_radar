@@ -579,6 +579,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
  */
 void transmit_worker(tx_streamer::sptr& tx_stream, rx_streamer::sptr& rx_stream)
 {
+  set_thread_priority_safe(1.0, true);
+
   // open file to stream from
   ifstream infile("../../" + chirp_loc, ifstream::binary);
 
