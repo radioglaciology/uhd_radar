@@ -114,7 +114,7 @@ if __name__ == "__main__":
     def duty_to_pri(duty):
         return 100 * active_time / (duty)
 
-    duty_cycles = np.arange(100.0, 1.0, -2.5) # in percent
+    duty_cycles = np.arange(pri_to_duty(max(config['CHIRP']['tx_duration'], config['CHIRP']['rx_duration'])), 1.0, -2.5) # in percent
     values = duty_to_pri(duty_cycles)
     results = {}
 
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     secax.set_xticks(duty_to_pri(ax.get_xticks()))
     secax.set_xticklabels([f"{x*1e6:.2f} us" for x in secax.get_xticks()], rotation="vertical")
     ax.set_ylim(0, 100)
-    ax.set_xlim(100, 0.1)
+    ax.set_xlim(duty_cycles[0], duty_cycles[-1])
 
     ax.set_ylabel('Percent of ERROR_CODE_LATE_COMMAND [%]')
     ax.set_title(f"tx_duration: {config['CHIRP']['tx_duration']}, rx_duration: {config['CHIRP']['rx_duration']}, num_pulses: {config['CHIRP']['num_pulses']}")
