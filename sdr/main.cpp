@@ -3,6 +3,7 @@
 #include <uhd/usrp/multi_usrp.hpp>
 #include <uhd/exception.hpp>
 #include <uhd/types/tune_request.hpp>
+#include <uhd/convert.hpp>
 #include <boost/program_options.hpp>
 #include <boost/format.hpp>
 #include <boost/thread.hpp>
@@ -50,6 +51,7 @@ string clk_ref;
 double clk_rate;
 string tx_channels; 
 string rx_channels;
+string cpu_format;
 string otw_format;
 
 // GPIO
@@ -124,6 +126,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   clk_rate = dev_params["clk_rate"].as<double>();
   tx_channels = dev_params["tx_channels"].as<string>();
   rx_channels = dev_params["rx_channels"].as<string>();
+  cpu_format = dev_params["cpu_format"].as<string>("fc32");
   otw_format = dev_params["otw_format"].as<string>();
 
   YAML::Node gpio_params = config["GPIO"];
@@ -391,7 +394,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   /*** TX SETUP ***/
 
   // Stream formats
-  stream_args_t tx_stream_args("fc32", otw_format); // TODO: Change over to sc16
+  stream_args_t tx_stream_args(cpu_format, otw_format);
   tx_stream_args.channels = tx_channel_nums;
 
   // tx streamer
@@ -401,7 +404,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   /*** RX SETUP ***/
 
-  stream_args_t rx_stream_args("fc32", otw_format); // TODO switch to sc16
+  stream_args_t rx_stream_args(cpu_format, otw_format);
 
   // rx streamer
   rx_stream_args.channels = rx_channel_nums;
@@ -463,7 +466,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   string gps_data;
 
   // receive buffer
-  vector<complex<float>> buff(num_rx_samps); // Buffer sized for one pulse at a time
+  size_t bytes_per_sample = convert::get_bytes_per_item(cpu_format);
+  vector<char> buff(num_rx_samps * bytes_per_sample); // Buffer sized for one pulse at a time
   vector<void *> buffs;
   for (size_t ch = 0; ch < rx_stream->get_num_channels(); ch++) {
     buffs.push_back(&buff.front()); // TODO: I don't think this actually works for num_channels > 1
@@ -514,7 +518,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     // write summed data to file
     if (outfile.is_open()) {
       outfile.write((const char*)&buff.front(), 
-        n_samps_rx * sizeof(complex<float>));
+        n_samps_rx * bytes_per_sample);
     }
 
     // // write gps string to file
@@ -594,8 +598,9 @@ void transmit_worker(tx_streamer::sptr& tx_stream, rx_streamer::sptr& rx_stream)
     exit(1);
   }
 
-  vector<complex<float>> tx_buff(num_tx_samps);
-  infile.read((char *)&tx_buff.front(), num_tx_samps * sizeof(complex<float>));
+  vector<char> tx_buff(num_tx_samps * convert::get_bytes_per_item(cpu_format));
+
+  infile.read((char *)&tx_buff.front(), num_tx_samps * convert::get_bytes_per_item(cpu_format));
 
   // Transmit metadata structure
   tx_metadata_t tx_md;

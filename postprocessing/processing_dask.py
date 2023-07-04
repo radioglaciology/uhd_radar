@@ -95,12 +95,25 @@ def save_radar_data_to_zarr(prefix, skip_if_cached=True, zarr_base_location=None
     # Load configuration YAML
     config = old_processing.load_config(prefix)
 
+    cpu_format = config['DEVICE'].get('cpu_format', 'fc32')
+    if cpu_format == 'fc32':
+        output_dtype = np.float32
+        scale_factor = 1.0
+    elif cpu_format == 'sc16':
+        output_dtype = np.int16
+        scale_factor = np.iinfo(output_dtype).max
+    elif cpu_format == 'sc8':
+        output_dtype = np.int8
+        scale_factor = np.iinfo(output_dtype).max
+    else:
+        raise Exception(f"Unrecognized cpu_format '{cpu_format}'. Must be one of 'fc32', 'sc16', or 'sc8'.")
+
     # Load raw RX samples
     rx_len_samples = int(config['CHIRP']['rx_duration']
                          * config['GENERATE']['sample_rate'])
     rx_sig = da.from_array(
-        np.memmap(rx_samps_file, dtype=np.float32, mode='r', order='C'), chunks=rx_len_samples*2*100)
-    rx_sig = (rx_sig[::2] + (1j * rx_sig[1::2]))
+        np.memmap(rx_samps_file, dtype=output_dtype, mode='r', order='C'), chunks=rx_len_samples*2*100)
+    rx_sig = (rx_sig[::2] + (1j * rx_sig[1::2])).astype(np.complex64) / scale_factor
     n_rxs = rx_sig.size // rx_len_samples
     radar_data = da.transpose(da.reshape(
         rx_sig, (n_rxs, rx_len_samples), merge_chunks=True))
