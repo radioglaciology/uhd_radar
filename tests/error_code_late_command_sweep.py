@@ -66,7 +66,8 @@ def test_with_pulse_rep_int(yaml_filename, pulse_rep_int, timeout_s=60*2, tmp_ya
     return {'file_prefix': file_prefix, 'pulse_rep_int': pulse_rep_int, 'n_errors': n_errors}
     #return {'file_prefix': "", 'pulse_rep_int': pulse_rep_int, 'n_errors': n_errors}
 
-expected_cwd = "/home/thomas/Documents/StanfordGrad/RadioGlaciology/sdr"
+#expected_cwd = "/home/thomas/Documents/StanfordGrad/RadioGlaciology/sdr"
+expected_cwd = "/home/radioglaciolgy/anna/uhd_radar"
 
 if __name__ == "__main__":
 
