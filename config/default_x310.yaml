@@ -23,7 +23,7 @@ DEVICE:
 GPIO:
     gpio_bank: "FP0"     # which GPIO bank to use (FP0 is front panel and default)
     pwr_amp_pin: "-1"    # which GPIO pin (on the DB15 connector) to use for external power amplifier control (set to -1 if not using), (normally 8)
-    ref_out: true          # whether to turn the 10 MHz reference out signal on (true) or off (false)
+    ref_out: 0          # whether to turn the 10 MHz reference out signal on (1) or off (0) set to (-1) if SDR does not support
 RF0:                     # parameters for first RF channel
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]

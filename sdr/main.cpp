@@ -61,7 +61,7 @@ uint32_t AMP_GPIO_MASK;
 uint32_t ATR_MASKS;
 uint32_t ATR_CONTROL;
 uint32_t GPIO_DDR;
-bool ref_out;
+int ref_out_int;
 
 // RF1
 double rx_rate;
@@ -139,7 +139,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     ATR_CONTROL = (AMP_GPIO_MASK);
     GPIO_DDR = (AMP_GPIO_MASK);
   }
-  ref_out = gpio_params["ref_out"].as<bool>();
+  
+  ref_out_int = gpio_params["ref_out"].as<int>();
 
   YAML::Node rf0 = config["RF0"];
   YAML::Node rf1 = config["RF1"];
@@ -386,7 +387,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   //cout << "AMP_GPIO_MASK: " << bitset<32>(AMP_GPIO_MASK) << endl;
 
   // turns external ref out port on or off
-  //usrp->set_clock_source_out(ref_out);
+   if (ref_out_int == 1) {
+    usrp->set_clock_source_out(true);
+  } else if (ref_out_int == 0) {
+    usrp->set_clock_source_out(false);
+  } // else do nothing (SDR likely doesn't support this parameter)
   
   // update the offset time for start of streaming to be offset from the current usrp time
   time_offset = time_offset + time_spec_t(usrp->get_time_now()).get_real_secs();
