@@ -9,5 +9,6 @@ dependencies:
   - matplotlib
   - yaml-cpp=0.6.3
   - pip
+  - pip:
     - gpiozero
     - RPi.GPIO
