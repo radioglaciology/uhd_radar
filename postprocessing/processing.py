@@ -161,7 +161,7 @@ def loadSamplesFromFile(filename, config, reshape=True, max_chunk_size=int(5e8),
 
 def stack(radar_data, n):
     radar_data_stacked = np.zeros_like(radar_data, shape=(np.shape(radar_data)[0], np.shape(radar_data)[1]//n))
-    for out_idx, start_idx in enumerate(np.arange(0, np.shape(radar_data)[1], n)):
+    for out_idx, start_idx in enumerate(np.arange(0, np.shape(radar_data_stacked)[1]*n, n)):
         radar_data_stacked[:,out_idx] = np.mean(radar_data[:,start_idx:(start_idx+n)], axis=1)
     return radar_data_stacked
 
