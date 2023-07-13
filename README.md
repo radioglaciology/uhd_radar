@@ -1,6 +1,6 @@
 # Stanford Radio Glaciology USRP Radar
 
-This repository will (eventually) contain a unified set of code for all of Stanford Radio Glaciology's USRP-based radar instruments.
+This repository contains a unified set of code for most of Stanford Radio Glaciology's USRP-based radar instruments.
 
 ## Repository Organization
 
@@ -9,8 +9,7 @@ This repository will (eventually) contain a unified set of code for all of Stanf
 * `preprocessing/` contains any scripts that need to run BEFORE the SDR code but that don't directly interface with the SDR. (For example: generation of a chirp waveform.)
 * `sdr/` contains any code that directly controls the SDR
 * `postprocessing/` contains any code that processing or plots data recorded by the SDR without directly interfacing with the SDR.
-* `delay_line/` still exists for mostly historical reasons. It's a stand-alone setup for configuring an SDR to act as a virtual delay line. We'll probably remove it from this repository at some point.
-* `run_default.sh` is a helper script that runs a sequence of commands for a basic radar experiment. Each experiment may eventually have its own, but, for now, this is just intended as sort of a starter guide to what you need to run.
+* `run.py` is a utility that manages the whole process of generating your output chirp, compiling the C++ code, running the radar, and collecting your results. This is the recommended way to run the radar system.
 
 ## Configuring your environment
 
@@ -26,6 +25,22 @@ Then activate it like this:
 
 And you're good to go. This installs UHD and all the other necessary dependencies.
 
+For directly interacting with the SDRs, you will need to download the FPGA images. After activating the environment, you can do this by running: `uhd_images_downloader`
+
+### Running the code
+
+Everything about the experiment you want to run is defined by a configuration YAML file. You can take a look at the examples in the `config/` directory,
+but you'll likely need to create your own file for whatever you want to do specifically. The `config/default.yaml` file contains comments explaining roughly what each parameter does.
+
+The recommended way of running everything is by using the `run.py` utility. In general, you run it like this:
+
+`python run.py config/your_config_file.yaml`
+
+This utility handles creating the chirp that will be transmitted, compiling and running the C++ code that interacts with the SDR, and collecting the output data.
+All of the configuration for this is contained within your configuration YAML file.
+
+## Information for developers and troubleshooting tips
+
 ### Adding a dependency
 
 If you need to add a new package, you can update `environment.yaml`. It's probably easiest to just do this manually, however, if you really want, you can also update it by exporting your existing environment:
@@ -37,22 +52,6 @@ Please check that the changes you made are what you expected before committing t
 ### Using Visual Studio Code
 
 It takes a few extra steps to tell Visual Studio Code that you're using the conda environment. For setup instructions, [see here](vscode.md).
-
-### Running the code
-
-In most cases, all the necessary parts of the workflow can be done together by running the `run_default.sh` script. To run this script, you need to create a directory within `sdr/` named `/build` (should be `sdr/build`).  
-
-Any arguments passed to the script will be passed along to each of the three component pieces (pre-processing, SDR code, and post-processing). In particular, all scripts accept a path to a configuration YAML. You can run an experiment defined by a particular YAML file like this:
-
-```
-./run_default.sh config/my_experiment.yaml
-```
-
-Another handy trick is saving the output to a file. You can do that like this:
-
-```
-./run_default.sh 2>&1 | tee log.txt
-```
 
 ## Adding features, git conventions
 
