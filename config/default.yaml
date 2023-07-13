@@ -55,15 +55,15 @@ CHIRP:
     pulse_rep_int: 400e-6 # Chirp period [s]
     tx_lead: 0e-6        # Time between start of TX and RX[s]
     num_pulses: &num_pulses 1000        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
-    num_presums: &num_presums 1         # No. of chirps to (coherently) presum onboard (must be at least 1)
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
     save_loc: &save_loc "data/rx_samps.bin" #"/dev/shm/rx_samps.bin" #"/media/usb/usrp_test/rx_samps.bin" #"data/rx_samps.bin"  # Save rx data here
     gps_loc: &gps_save_loc "data/gps_log.txt" # save gps data here (only works if gpsdo is selected as the clock source)
-    max_chirps_per_file: -1 # Maximum number of RX from a chirp to write to a single file -- set to -1 to avoid breaking into multiple files
+    max_chirps_per_file: 100 # Maximum number of RX from a chirp to write to a single file -- set to -1 to avoid breaking into multiple files
 RUN_MANAGER: # These settings are only used by run.py -- not read by main.cpp at all
-    final_save_loc: "data/rx_samps_merged.bin" # specify the save location for the big final file, leave blank if you don't want to save a big file
-    save_partial_files: False # set to true if you want individual small files to be copied, set to false if you just want the big merged file to be copied
+    # Note: if max_chirps_per_file = -1 (i.e. all data will be written directly to a single file, then final_save_loc and save_partial_files will be ignored
+    final_save_loc: null #"data/rx_samps_merged.bin" # specify the save location for the big final file, set to null if you don't want to save a big file
+    save_partial_files: True # set to true if you want individual small files to be copied, set to false if you just want the big merged file to be copied
     save_gps: False # set to true if using gps and wanting to save gps location data, set to false otherwise`
 
 
