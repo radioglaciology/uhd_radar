@@ -433,20 +433,19 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     gps_save_loc = "../../" + gps_save_loc;
   }
 
-  // //string gps_path = save_loc + "_gps_log.txt"; 
-  // int gps_file = open(gps_save_loc.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
-  // if (gps_file == -1) {
-  //     throw std::runtime_error("Failed to open GPS file: " + gps_save_loc);
-  // }
+  int gps_file = open(gps_save_loc.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+  if (gps_file == -1) {
+      throw std::runtime_error("Failed to open GPS file: " + gps_save_loc);
+  }
 
-  // boost::asio::posix::stream_descriptor gps_stream{ioservice, gps_file};
-  // auto gps_asio_handler = [](const boost::system::error_code& ec, std::size_t) {
-  //   if (ec.value() != 0) {
-  //     cout << "GPS write error: " << ec.message() << endl;
-  //   }
-  // };
+  boost::asio::posix::stream_descriptor gps_stream{ioservice, gps_file};
+  auto gps_asio_handler = [](const boost::system::error_code& ec, std::size_t) {
+    if (ec.value() != 0) {
+      cout << "GPS write error: " << ec.message() << endl;
+    }
+  };
 
-  // ioservice.run();
+  ioservice.run();
 
   
 
@@ -506,11 +505,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
     //receive_samples(rx_stream, num_rx_samps, sample_sum, chirps_sent);
 
-    // // get gps data
-    // if (clk_ref == "gpsdo" && ((chirps_sent % 2000) == 0)) {
-    //   gps_data = usrp->get_mboard_sensor("gps_gprmc").to_pp_string();
-    //   //cout << gps_data << endl;
-    // }
+    // get gps data
+    if (clk_ref == "gpsdo" && ((pulses_received % 100000) == 0)) {
+      gps_data = usrp->get_mboard_sensor("gps_gprmc").to_pp_string();
+      //cout << gps_data << endl;
+    }
 
     // check if someone wants to stop
     if (stop_signal_called) {
@@ -526,17 +525,10 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
         n_samps_rx * bytes_per_sample);
     }
 
-    // // write gps string to file
-    // if (clk_ref == "gpsdo") {
-    //   /*gpsfile.write(gps_data.c_str(), sizeof(char) * gps_data.size());
-    //   gpsfile.write("\n", sizeof(char));
-    //   cout << "[HERE] writing gps string" << endl;*/
-
-    //   //cout << "gps data size: " << sizeof(gps_data) << endl;
-    //   boost::asio::async_write(gps_stream, boost::asio::buffer(gps_data + "\n"), gps_asio_handler);
-
-    //   //gps_buffer = uv_buf_init((char*)gps_data.c_str(), sizeof(gps_data));
-    // }
+    // write gps string to file
+    if (clk_ref == "gpsdo") {
+      boost::asio::async_write(gps_stream, boost::asio::buffer(gps_data + "\n"), gps_asio_handler);
+    }
 
     if ( (max_chirps_per_file > 0) && (int(pulses_received / max_chirps_per_file) > save_file_index)) {
       outfile.close();
@@ -564,12 +556,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   cout << "[RX] Closing output file." << endl;
   outfile.close();
   cout << "[CLOSE FILE] " << current_filename << endl;
-  
-  /*if (gpsfile.is_open()) {
-    gpsfile.close();
-  }*/
 
-  //gps_stream.close();
+  gps_stream.close();
 
   cout << "[RX] Error count: " << error_count << endl;
   
