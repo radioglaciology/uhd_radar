@@ -8,6 +8,11 @@ dependencies:
   - scipy
   - matplotlib
   - yaml-cpp=0.6.3
+  - xarray
+  - dask
+  - zarr
+  - hvplot
+  - datashader
   - pip
   - pip:
     - gpiozero
