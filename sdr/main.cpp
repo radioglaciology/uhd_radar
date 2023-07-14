@@ -484,7 +484,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   while ((num_pulses < 0) || (pulses_received < num_pulses)) {
 
-    n_samps_rx = rx_stream->recv(buffs, num_rx_samps, rx_md, 10.0, false); // TODO: Think about timeout
+    n_samps_rx = rx_stream->recv(buffs, num_rx_samps, rx_md, 60.0, false); // TODO: Think about timeout
 
     //cout << "[RX] Received metadata: " << rx_md.to_pp_string() << endl;
 

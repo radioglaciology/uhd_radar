@@ -25,6 +25,7 @@ bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0,
     double rx_rate = rf0["rx_rate"].as<double>();
     double tx_rate = rf0["tx_rate"].as<double>();
     double fc = rf0["freq"].as<double>();
+    double lo_offset = rf0["lo_offset"].as<double>(0.0);
     double rx_gain = rf0["rx_gain"].as<double>();
     double tx_gain = rf0["tx_gain"].as<double>();
     double bw = rf0["bw"].as<double>();
@@ -41,13 +42,17 @@ bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0,
     usrp->set_rx_rate(rx_rate, rx_channel);
     usrp->set_tx_rate(tx_rate, tx_channel);
 
-    // set center frequency at same time for both daughterboards
+    // Set command time to current time + 0.1 seconds
     usrp->clear_command_time();
     usrp->set_command_time(usrp->get_time_now() + time_spec_t(0.1));
 
-    tune_request_t tune_request(fc);
-    usrp->set_rx_freq(tune_request, rx_channel);
-    usrp->set_tx_freq(tune_request, tx_channel);
+    // Set the center frequency and LO offset.
+    // Note the LO offset by default has different behaviors for TX and RX,
+    // which is why we multiply the TX LO offset by -1.
+    tune_request_t tune_request_tx(fc, -1 * lo_offset);
+    tune_request_t tune_request_rx(fc, lo_offset);
+    usrp->set_rx_freq(tune_request_rx, rx_channel);
+    usrp->set_tx_freq(tune_request_tx, tx_channel);
 
     // sleep 100ms (~10ms after retune occurs) to allow LO to lock
     this_thread::sleep_for(chrono::milliseconds(110)); 

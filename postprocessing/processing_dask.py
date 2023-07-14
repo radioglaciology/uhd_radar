@@ -120,7 +120,7 @@ def save_radar_data_to_zarr(prefix, skip_if_cached=True, zarr_base_location=None
 
     # Create time axes
     slow_time = np.linspace(0, config['CHIRP']['pulse_rep_int']
-                            * config['CHIRP']['num_presums']*n_rxs, radar_data.shape[1])
+                            * config['CHIRP'].get('num_presums', 1)*n_rxs, radar_data.shape[1])
     fast_time = np.linspace(
         0, config['CHIRP']['rx_duration'], radar_data.shape[0])
 
