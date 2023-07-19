@@ -173,7 +173,11 @@ def fill_errors(data, error_fill_value=np.nan):
     _, errors = process_stdout_log(data.attrs["stdout_log"])
     result = data.copy()
     error_idxs = np.array(list(errors.keys()))
-    result["radar_data"][{"pulse_idx": error_idxs}] = error_fill_value
+
+    # only fill errors if they exist, otherwise avoid throwing an index error
+    if error_idxs.size != 0:
+        result["radar_data"][{"pulse_idx": error_idxs}] = error_fill_value
+        
     return result
 
 def remove_errors(data, skip_if_already_complete=True):
