@@ -165,12 +165,74 @@ def save_radar_data_to_zarr(prefix, skip_if_cached=True, zarr_base_location=None
 
     return zarr_path
 
+def check_if_error_data_exists(data, errors=None):
+    """
 
-def fill_errors(data, error_fill_value=np.nan):
+    Attempts to automatically correct for an unintended behavior of some versions of the code.
+
+    Basically, there are two existant behaviors for the radar code when an ERROR_CODE_LATE_COMMAND
+    occurs. In one type, zeros or junk data of the lengths of a normal receive window are recorded.
+    In the other type, nothing is writen to the output file when an error occurs.
+
+    If a specific number of pulses was requested in the config file, we can automatically determine
+    which behavior occurred.
+
+    The intent of this function is to be used internally in error management functions (fill_errors
+    and remove_errors) to automatically prevent calling them in a way that doens't make sense.
+
+    Input variables:
+        data Xarray dataset, some format as everything else
+        errors Optional, if a dictionary of errors is already available from process_stdout_log,
+            you can provide it here to avoid calling that function twice.
+
+    There are four possible return values, returned as strings (sorry...)
+
+    "unknown" -- No specific number of pulses requsted, so there is not trivial way of determining
+        which case we're in. (Note that there are cases where we can still figure it out from the
+        log. This can be a future project. TODO)
+    "error_data_included" -- The number of recorded pulses exactly matches what was requested.
+        Note: This includes all recordings with 0 errors. In all intended use cases of this function,
+        it shouldn't matter what this function returns if there are zero errors.
+    "error_data_not_included" -- The number of recorded pulses exaclty matches what was requested minus
+        the number of errors.
+    "unexpected_data_length" -- The number of recorded pulses matches neither of the above criteria.
+        This could indicate that the recording was stopped early (by someone pressing Ctrl-C, for example)
+        or it could indicate a more serious problem. This return value should always be investigated.
+    """
+
+    pulses_requested = data.attrs['config']['CHIRP']['num_pulses']
+    pulses_in_data = len(data.pulse_idx)
+    
+    if not errors:
+        _, errors = process_stdout_log(data.attrs["stdout_log"])
+    
+    n_errors = len(errors)
+
+    if pulses_requested < 0:
+        return "unknown" # Number of attempted pulses unknown, so cannot trivially determine if error data is included
+    elif pulses_in_data == pulses_requested:
+        return "error_data_included"
+    elif pulses_in_data == (pulses_requested - n_errors):
+        return "error_data_not_included"
+    else:
+        return "unexpected_data_length"
+
+def fill_errors(data, error_fill_value=np.nan, allowed_file_error_types=[]):
     """
     Replace all values from chirps with a reported error with the specified error_fill_value
     """
+
     _, errors = process_stdout_log(data.attrs["stdout_log"])
+    file_error_type = check_if_error_data_exists(data, errors)
+
+    if file_error_type != "error_data_included":
+        if (file_error_type in allowed_file_error_types):
+            print(f"[WARNING] Unexpected file error type of {file_error_type} but " +
+                  "explicitly allowed by allowed_file_error_types so proceeding without additional checks. This may have unexpected behaviors!")
+        else:
+            print(f"[WARNING] File error type is {file_error_type} so there's nothing for this function to do. Returning a copy of your unmodified dataset.")
+            return data.copy()
+
     result = data.copy()
     error_idxs = np.array(list(errors.keys()))
 
@@ -180,10 +242,21 @@ def fill_errors(data, error_fill_value=np.nan):
         
     return result
 
-def remove_errors(data, skip_if_already_complete=True):
+def remove_errors(data, skip_if_already_complete=True, allowed_file_error_types=[]):
     """
     Remove received data associated with chrips with a reported error
     """
+
+    _, errors = process_stdout_log(data.attrs["stdout_log"])
+    file_error_type = check_if_error_data_exists(data, errors)
+
+    if file_error_type != "error_data_included":
+        if (file_error_type in allowed_file_error_types):
+            print(f"[WARNING] Unexpected file error type of {file_error_type} but " +
+                  "explicitly allowed by allowed_file_error_types so proceeding without additional checks. This may have unexpected behaviors!")
+        else:
+            print(f"[WARNING] File error type is {file_error_type} so there's nothing for this function to do. Returning a copy of your unmodified dataset.")
+            return data.copy()
 
     if "errors_removed" in data.attrs:
         if skip_if_already_complete:
@@ -192,7 +265,6 @@ def remove_errors(data, skip_if_already_complete=True):
         else:
             raise ValueError("Errors have already been removed from this data")
 
-    _, errors = process_stdout_log(data.attrs["stdout_log"])
     result = data.copy()
     all_idxs = np.arange(data["radar_data"].shape[1])
     keep_idxs = [x for x in all_idxs if x not in list(errors.keys())]
