@@ -506,10 +506,10 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     //receive_samples(rx_stream, num_rx_samps, sample_sum, chirps_sent);
 
     // get gps data
-    if (clk_ref == "gpsdo" && ((pulses_received % 100000) == 0)) {
+    /*if (clk_ref == "gpsdo" && ((pulses_received % 100000) == 0)) {
       gps_data = usrp->get_mboard_sensor("gps_gprmc").to_pp_string();
       //cout << gps_data << endl;
-    }
+    }*/
 
     // check if someone wants to stop
     if (stop_signal_called) {
@@ -526,9 +526,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     }
 
     // write gps string to file
-    if (clk_ref == "gpsdo") {
+    /*if (clk_ref == "gpsdo") {
       boost::asio::async_write(gps_stream, boost::asio::buffer(gps_data + "\n"), gps_asio_handler);
-    }
+    }*/
 
     if ( (max_chirps_per_file > 0) && (int(pulses_received / max_chirps_per_file) > save_file_index)) {
       outfile.close();

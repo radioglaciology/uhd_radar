@@ -54,8 +54,14 @@ def generate_chirp(config):
         chirp_complex = chirp_complex * np.blackman(chirp_complex.size)
     elif window == "hamming":
         chirp_complex = chirp_complex * np.hamming(chirp_complex.size)
+    elif window == "kaiser14":
+        chirp_complex = chirp_complex * np.kaiser(chirp_complex.size, 14.0)
+    elif window == "kaiser10":
+        chirp_complex = chirp_complex * np.kaiser(chirp_complex.size, 10.0)
+    elif window == "kaiser18": 
+        chirp_complex = chirp_complex * np.kaiser(chirp_complex.size, 18.0)
     elif window != "rectangular":
-        printf("[ERROR] Unrecognized window function '{window}'")
+        print("[ERROR] Unrecognized window function '{window}'")
         return None, None
 
     chirp_complex = np.pad(chirp_complex, (int(np.floor(ts_zp.size - ts.size)/2),), 'constant')
