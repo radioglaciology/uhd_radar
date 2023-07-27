@@ -63,7 +63,7 @@ uint32_t ATR_CONTROL;
 uint32_t GPIO_DDR;
 int ref_out_int;
 
-// RF1
+// RF
 double rx_rate;
 double tx_rate;
 double freq;
@@ -72,6 +72,7 @@ double tx_gain;
 double bw;
 string tx_ant;
 string rx_ant;
+bool transmit;
 
 // CHIRP
 double time_offset;
@@ -153,6 +154,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   tx_ant = rf1["tx_ant"].as<string>();
   rx_ant = rf1["rx_ant"].as<string>();
 
+  transmit = rf0["transmit"].as<bool>(true); // True if transmission enabled
+
   YAML::Node chirp = config["CHIRP"];
   time_offset = chirp["time_offset"].as<double>();
   tx_duration = chirp["tx_duration"].as<double>();
@@ -172,8 +175,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // Calculated parameters
   tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
-  num_tx_samps = tx_rate * tx_duration; // Total samples to transmit per chirp
-  num_rx_samps = rx_rate * rx_duration; // Total samples to receive per chirp
+  num_tx_samps = tx_rate * tx_duration; // Total samples to transmit per chirp // TODO: Should use ["GENERATE"]["sample_rate"] instead!
+  num_rx_samps = rx_rate * rx_duration; // Total samples to receive per chirp // TODO: Should use ["GENERATE"]["sample_rate"] instead!
 
 
   /** Thread, interrupt setup **/
@@ -296,7 +299,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // always select the subdevice first, the channel mapping affects the
   // other settings
-  usrp->set_tx_subdev_spec(subdev);
+  if (transmit) {
+    usrp->set_tx_subdev_spec(subdev);
+  }
   usrp->set_rx_subdev_spec(subdev);
 
   // set master clock rate
@@ -328,6 +333,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   if (tx_channel_nums.size() == 1) {
     set_rf_params_single(usrp, rf0, rx_channel_nums, tx_channel_nums);
   } else if (tx_channel_nums.size() == 2) {
+    if (!transmit) {
+      throw std::runtime_error("Non-transmit mode not supported by set_rf_params_multi");
+    }
     set_rf_params_multi(usrp, rf0, rf1, rx_channel_nums, tx_channel_nums);
   } else {
     throw std::runtime_error("Number of channels requested not supported");
@@ -341,15 +349,17 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // Check Ref and LO Lock detect
   vector<std::string> tx_sensor_names, rx_sensor_names;
-  for (size_t ch = 0; ch < tx_channel_nums.size(); ch++) {
-    // Check LO locked
-    tx_sensor_names = usrp->get_tx_sensor_names(ch);
-    if (find(tx_sensor_names.begin(), tx_sensor_names.end(), "lo_locked") != tx_sensor_names.end())
-    {
-      sensor_value_t lo_locked = usrp->get_tx_sensor("lo_locked", ch);
-      cout << boost::format("Checking TX: %s ...") % lo_locked.to_pp_string()
-           << endl;
-      UHD_ASSERT_THROW(lo_locked.to_bool());
+  if (transmit) {
+    for (size_t ch = 0; ch < tx_channel_nums.size(); ch++) {
+      // Check LO locked
+      tx_sensor_names = usrp->get_tx_sensor_names(ch);
+      if (find(tx_sensor_names.begin(), tx_sensor_names.end(), "lo_locked") != tx_sensor_names.end())
+      {
+        sensor_value_t lo_locked = usrp->get_tx_sensor("lo_locked", ch);
+        cout << boost::format("Checking TX: %s ...") % lo_locked.to_pp_string()
+            << endl;
+        UHD_ASSERT_THROW(lo_locked.to_bool());
+      }
     }
   }
 
@@ -403,9 +413,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   tx_stream_args.channels = tx_channel_nums;
 
   // tx streamer
-  tx_streamer::sptr tx_stream = usrp->get_tx_stream(tx_stream_args);
-
-  cout << "INFO: tx_stream get_max_num_samps: " << tx_stream->get_max_num_samps() << endl;
+  tx_streamer::sptr tx_stream;
+  if (transmit) {
+    tx_stream = usrp->get_tx_stream(tx_stream_args);
+    cout << "INFO: tx_stream get_max_num_samps: " << tx_stream->get_max_num_samps() << endl;
+  }
 
   /*** RX SETUP ***/
 
@@ -420,6 +432,10 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   /*** SPAWN THE TX THREAD ***/
   boost::thread_group transmit_thread;
   transmit_thread.create_thread(boost::bind(&transmit_worker, tx_stream, rx_stream));
+  
+  if (!transmit) {
+    cout << "WARNING: Transmit disabled by configuration file!" << endl;
+  }
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -646,7 +662,9 @@ void transmit_worker(tx_streamer::sptr& tx_stream, rx_streamer::sptr& rx_stream)
     rx_time = time_offset + (pulse_rep_int * pulses_scheduled); // TODO: How do we track timing
     tx_md.time_spec = time_spec_t(rx_time - tx_lead);
     
-    n_samp_tx = tx_stream->send(&tx_buff.front(), num_tx_samps, tx_md, 60); // TODO: Think about timeout
+    if (transmit) {
+      n_samp_tx = tx_stream->send(&tx_buff.front(), num_tx_samps, tx_md, 60); // TODO: Think about timeout
+    }
 
     // RX
     stream_cmd.time_spec = time_spec_t(rx_time);
