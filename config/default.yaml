@@ -30,7 +30,7 @@ RF0:
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
     freq: 390e6          # Center Frequency (for mixing)
-    lo_offset: 12e6      # LO offset [Hz]
+    lo_offset: 15e6      # LO offset [Hz]
     rx_gain: 36          # RX Gain [dB]
     tx_gain: 59.8        # TX Gain [dB] - 60.8 is -10 dBm output
     bw: 30e6             # TX/RW Bandwidth [Hz]
@@ -55,7 +55,8 @@ CHIRP:
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
     pulse_rep_int: 400e-6 # Chirp period [s]
     tx_lead: 0e-6        # Time between start of TX and RX[s]
-    num_pulses: &num_pulses 1000        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
+    num_pulses: &num_pulses 10000        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
+    phase_dithering: true
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
     save_loc: &save_loc "data/rx_samps.bin" #"/dev/shm/rx_samps.bin" #"/media/usb/usrp_test/rx_samps.bin" #"data/rx_samps.bin"  # Save rx data here
