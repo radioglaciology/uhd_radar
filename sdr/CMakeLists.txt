@@ -17,7 +17,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" AND ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
     set(CMAKE_EXE_LINKER_FLAGS "-lthr ${CMAKE_EXE_LINKER_FLAGS}")
-    set(CMAKE_CXX_FLAGS "-stdlib=libc++ ${CMAKE_CXX_FLAGS}")
+    set(CMAKE_CXX_FLAGS "-stdlib=libc++ -std=c++17 ${CMAKE_CXX_FLAGS}")
 endif()
 
 ### Set up build environment ##################################################
@@ -53,8 +53,11 @@ include_directories(
 )
 link_directories(${Boost_LIBRARY_DIRS})
 
-### Make the executable #######################################################
-add_executable(radar main.cpp rf_settings.cpp rf_settings.hpp utils.cpp utils.hpp)
+### Make the executables #######################################################
+# Radar executable
+add_executable(radar main.cpp rf_settings.cpp rf_settings.hpp utils.cpp utils.hpp pseudorandom_phase.cpp pseudorandom_phase.hpp)
+# Psuedorandom phase noise generation for post-processing
+add_executable(pseudorandom_phase_codes_to_file pseudorandom_phase_to_file.cpp pseudorandom_phase.cpp pseudorandom_phase.hpp)
 
 set(CMAKE_BUILD_TYPE "Release")
 

@@ -265,9 +265,8 @@ def remove_errors(data, skip_if_already_complete=True, allowed_file_error_types=
         else:
             raise ValueError("Errors have already been removed from this data")
 
-    result = data.copy()
     all_idxs = np.arange(data["radar_data"].shape[1])
-    keep_idxs = [x for x in all_idxs if x not in list(errors.keys())]
+    keep_idxs = np.delete(all_idxs, np.array(list(errors.keys())))
 
     result = data[{'pulse_idx': keep_idxs}]
     result.attrs["errors_removed"] = True
@@ -331,3 +330,23 @@ def pulse_compress(data: xr.Dataset, chirp, fs: float, zero_sample_idx: int=0, s
             "fs": fs, "chirp": chirp, "zero_sample_idx": zero_sample_idx, "signal_speed": signal_speed}
     
     return compressed
+
+
+def invert_phase_dithering(data, phase_codes_filename, override_errors=False):
+
+    if not override_errors:
+        if "phase_dithering_inversion" in data.attrs:
+            raise Exception("It looks like phase dithering inversion has already been run on this dataset.")
+        if not data.attrs['config']["CHIRP"].get("phase_dithering", False):
+            raise Exception("phase_dithering is not set in the config file. Are you sure you want to invert this file?")
+    
+    phases = np.fromfile(phase_codes_filename, dtype=np.float32, count=len(data.pulse_idx))
+    xr_phases = xr.DataArray(phases, dims=('pulse_idx',))
+
+    demodulated = data.copy()
+
+    demodulated["radar_data"] *= np.exp(-1j * xr_phases)
+
+    demodulated.attrs["phase_dithering_inversion"] = {'phases': phases}
+    
+    return demodulated
