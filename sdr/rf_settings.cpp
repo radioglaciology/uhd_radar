@@ -50,13 +50,13 @@ bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0,
     usrp->set_command_time(usrp->get_time_now() + time_spec_t(0.1));
 
     // Set the center frequency and LO offset.
-    // Note the LO offset by default has different behaviors for TX and RX,
-    // which is why we multiply the TX LO offset by -1.
-    tune_request_t tune_request_tx(fc, -1 * lo_offset);
+    tune_request_t tune_request_tx(fc, lo_offset);
     tune_request_t tune_request_rx(fc, lo_offset);
-    usrp->set_rx_freq(tune_request_rx, rx_channel);
+    tune_result_t tune_result_rx = usrp->set_rx_freq(tune_request_rx, rx_channel);
+    cout << tune_result_rx.to_pp_string() << endl;
     if (transmit) {
-        usrp->set_tx_freq(tune_request_tx, tx_channel);
+        tune_result_t tune_result_tx = usrp->set_tx_freq(tune_request_tx, tx_channel);
+        cout << tune_result_tx.to_pp_string() << endl;
     }
 
     // sleep 100ms (~10ms after retune occurs) to allow LO to lock
@@ -202,31 +202,46 @@ bool rf_error_check(usrp::multi_usrp::sptr usrp, YAML::Node rf, size_t tx_channe
     double bw = rf["bw"].as<double>();
     string tx_ant = rf["tx_ant"].as<string>();
     string rx_ant = rf["rx_ant"].as<string>();
-    bool transmit = rf["transmit"].as<bool>();
+    bool transmit = rf["transmit"].as<bool>(true);
+
 
     if (usrp->get_rx_rate(rx_channel) != rx_rate) {
-        cout << boost::format("[WARNING]: Requested RX rate (CH%d): %f MHz. Actual RX rate: %f MHz.")
-            % rx_channel % (rx_rate / (1e6)) % (usrp->get_rx_rate(rx_channel) / (1e6)) << endl;
+        cout << boost::format("[WARNING]: Requested RX rate (CH%d): %f Hz. Actual RX rate: %f Hz.")
+            % rx_channel % (rx_rate) % (usrp->get_rx_rate(rx_channel)) << endl;
         mismatch = true;
     }
 
     if (transmit && (usrp->get_tx_rate(tx_channel) != tx_rate)) {
-        cout << boost::format("[WARNING]: Requested TX rate (CH%d): %f MHz. Actual TX rate: %f MHz.")
-            % tx_channel % (tx_rate / (1e6)) % (usrp->get_tx_rate(tx_channel) / (1e6)) << endl;
+        cout << boost::format("[WARNING]: Requested TX rate (CH%d): %f Hz. Actual TX rate: %f Hz.")
+            % tx_channel % (tx_rate) % (usrp->get_tx_rate(tx_channel)) << endl;
         mismatch = true;
     }
 
     if (usrp->get_rx_freq(rx_channel) != fc) {
-        cout << boost::format("[WARNING]: Requested RX center freq (CH%d): %f MHz. Actual RX center freq: %f MHz.")
-            % rx_channel % (fc / (1e6)) % (usrp->get_rx_freq(rx_channel) / (1e6)) << endl;
+        cout << boost::format("[WARNING]: Requested RX center freq (CH%d): %f Hz. Actual RX center freq: %f Hz.")
+            % rx_channel % (fc) % (usrp->get_rx_freq(rx_channel)) << endl;
         mismatch = true;
     }
 
     if (transmit && (usrp->get_tx_freq(tx_channel) != fc)) {
-        cout << boost::format("[WARNING]: Requested TX center freq (CH%d): %f MHz. Actual TX center freq: %f MHz.")
-            % tx_channel % (fc / (1e6)) % (usrp->get_tx_freq(tx_channel) / (1e6)) << endl;
+        cout << boost::format("[WARNING]: Requested TX center freq (CH%d): %f Hz. Actual TX center freq: %f Hz.")
+            % tx_channel % (fc) % (usrp->get_tx_freq(tx_channel)) << endl;
         mismatch = true;
     }
+
+    if (transmit) {
+        double tx_rx_center_freq_diff = usrp->get_tx_freq(tx_channel) - usrp->get_rx_freq(rx_channel);
+        if (tx_rx_center_freq_diff != 0){
+            cout << boost::format("[WARNING] [**** FOR REAL THIS IS IMPORTANT ****] TX and RX center frequencies are not the same. Difference is %f Hz.")
+            % tx_rx_center_freq_diff << endl;
+        }
+        double tx_rx_rate_diff = usrp->get_tx_rate(tx_channel) - usrp->get_rx_rate(rx_channel);
+        if (tx_rx_rate_diff != 0){
+            cout << boost::format("[WARNING] [**** FOR REAL THIS IS IMPORTANT ****] TX and RX sample rates are not the same. Difference is %f Hz.")
+            % tx_rx_rate_diff << endl;
+        }
+    }
+    
 
     if (usrp->get_rx_gain(rx_channel) != rx_gain) {
         cout << boost::format("[WARNING]: Requested RX gain (CH%d): %f dB. Actual RX gain: %f dB.")
