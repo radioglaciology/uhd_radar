@@ -30,12 +30,13 @@ RF0:
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
     freq: 390e6          # Center Frequency (for mixing)
-    lo_offset: 12e6      # LO offset [Hz]
+    lo_offset: 15e6      # LO offset [Hz]
     rx_gain: 36          # RX Gain [dB]
     tx_gain: 59.8        # TX Gain [dB] - 60.8 is -10 dBm output
     bw: 30e6             # TX/RW Bandwidth [Hz]
     tx_ant: "TX/RX"
     rx_ant: "RX2"
+    transmit: true       # "true" (or not set) for normal operation, set to "false" to completely disable transmit
 RF1:                     # parameters for second RF channel
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
@@ -54,16 +55,17 @@ CHIRP:
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
     pulse_rep_int: 400e-6 # Chirp period [s]
     tx_lead: 0e-6        # Time between start of TX and RX[s]
-    num_pulses: &num_pulses 1000        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
+    num_pulses: &num_pulses 10000        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
+    phase_dithering: true
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
     save_loc: &save_loc "data/rx_samps.bin" #"/dev/shm/rx_samps.bin" #"/media/usb/usrp_test/rx_samps.bin" #"data/rx_samps.bin"  # Save rx data here
     gps_loc: &gps_save_loc "data/gps_log.txt" # save gps data here (only works if gpsdo is selected as the clock source)
-    max_chirps_per_file: 100 # Maximum number of RX from a chirp to write to a single file -- set to -1 to avoid breaking into multiple files
+    max_chirps_per_file: -1 # Maximum number of RX from a chirp to write to a single file -- set to -1 to avoid breaking into multiple files
 RUN_MANAGER: # These settings are only used by run.py -- not read by main.cpp at all
     # Note: if max_chirps_per_file = -1 (i.e. all data will be written directly to a single file, then final_save_loc and save_partial_files will be ignored
     final_save_loc: null #"data/rx_samps_merged.bin" # specify the save location for the big final file, set to null if you don't want to save a big file
-    save_partial_files: True # set to true if you want individual small files to be copied, set to false if you just want the big merged file to be copied
+    save_partial_files: False # set to true if you want individual small files to be copied, set to false if you just want the big merged file to be copied
     save_gps: False # set to true if using gps and wanting to save gps location data, set to false otherwise`
 
 

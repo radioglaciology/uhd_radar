@@ -36,6 +36,7 @@ RF0:                     # parameters for first RF channel
     bw: 0                # TX/RW Bandwidth [Hz]
     tx_ant: "TX/RX"
     rx_ant: "RX2"
+    transmit: true       # "true" (or not set) for normal operation, set to "false" to completely disable transmit
 RF1:                     # parameters for second RF channel, only used if set to multiple channels
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]

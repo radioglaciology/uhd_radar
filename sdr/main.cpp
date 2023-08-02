@@ -24,6 +24,7 @@
 #include "yaml-cpp/yaml.h"
 
 #include "rf_settings.hpp"
+#include "pseudorandom_phase.hpp"
 #include "utils.hpp"
 
 using namespace std;
@@ -63,7 +64,7 @@ uint32_t ATR_CONTROL;
 uint32_t GPIO_DDR;
 int ref_out_int;
 
-// RF1
+// RF
 double rx_rate;
 double tx_rate;
 double freq;
@@ -72,6 +73,7 @@ double tx_gain;
 double bw;
 string tx_ant;
 string rx_ant;
+bool transmit;
 
 // CHIRP
 double time_offset;
@@ -83,6 +85,7 @@ double pulse_rep_int;
 double tx_lead;
 int num_pulses;
 int max_chirps_per_file;
+bool phase_dither;
 
 // FILENAMES
 string chirp_loc;
@@ -153,6 +156,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   tx_ant = rf1["tx_ant"].as<string>();
   rx_ant = rf1["rx_ant"].as<string>();
 
+  transmit = rf0["transmit"].as<bool>(true); // True if transmission enabled
+
   YAML::Node chirp = config["CHIRP"];
   time_offset = chirp["time_offset"].as<double>();
   tx_duration = chirp["tx_duration"].as<double>();
@@ -163,6 +168,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   tx_lead = chirp["tx_lead"].as<double>();
   num_pulses = chirp["num_pulses"].as<int>();
   //num_presums = chirp["num_presums"].as<int>(); // TODO: No more presum support
+  phase_dither = chirp["phase_dithering"].as<bool>(false);
 
   YAML::Node files = config["FILES"];
   chirp_loc = files["chirp_loc"].as<string>();
@@ -172,8 +178,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // Calculated parameters
   tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
-  num_tx_samps = tx_rate * tx_duration; // Total samples to transmit per chirp
-  num_rx_samps = rx_rate * rx_duration; // Total samples to receive per chirp
+  num_tx_samps = tx_rate * tx_duration; // Total samples to transmit per chirp // TODO: Should use ["GENERATE"]["sample_rate"] instead!
+  num_rx_samps = rx_rate * rx_duration; // Total samples to receive per chirp // TODO: Should use ["GENERATE"]["sample_rate"] instead!
 
 
   /** Thread, interrupt setup **/
@@ -296,7 +302,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // always select the subdevice first, the channel mapping affects the
   // other settings
-  usrp->set_tx_subdev_spec(subdev);
+  if (transmit) {
+    usrp->set_tx_subdev_spec(subdev);
+  }
   usrp->set_rx_subdev_spec(subdev);
 
   // set master clock rate
@@ -328,6 +336,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   if (tx_channel_nums.size() == 1) {
     set_rf_params_single(usrp, rf0, rx_channel_nums, tx_channel_nums);
   } else if (tx_channel_nums.size() == 2) {
+    if (!transmit) {
+      throw std::runtime_error("Non-transmit mode not supported by set_rf_params_multi");
+    }
     set_rf_params_multi(usrp, rf0, rf1, rx_channel_nums, tx_channel_nums);
   } else {
     throw std::runtime_error("Number of channels requested not supported");
@@ -341,15 +352,17 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // Check Ref and LO Lock detect
   vector<std::string> tx_sensor_names, rx_sensor_names;
-  for (size_t ch = 0; ch < tx_channel_nums.size(); ch++) {
-    // Check LO locked
-    tx_sensor_names = usrp->get_tx_sensor_names(ch);
-    if (find(tx_sensor_names.begin(), tx_sensor_names.end(), "lo_locked") != tx_sensor_names.end())
-    {
-      sensor_value_t lo_locked = usrp->get_tx_sensor("lo_locked", ch);
-      cout << boost::format("Checking TX: %s ...") % lo_locked.to_pp_string()
-           << endl;
-      UHD_ASSERT_THROW(lo_locked.to_bool());
+  if (transmit) {
+    for (size_t ch = 0; ch < tx_channel_nums.size(); ch++) {
+      // Check LO locked
+      tx_sensor_names = usrp->get_tx_sensor_names(ch);
+      if (find(tx_sensor_names.begin(), tx_sensor_names.end(), "lo_locked") != tx_sensor_names.end())
+      {
+        sensor_value_t lo_locked = usrp->get_tx_sensor("lo_locked", ch);
+        cout << boost::format("Checking TX: %s ...") % lo_locked.to_pp_string()
+            << endl;
+        UHD_ASSERT_THROW(lo_locked.to_bool());
+      }
     }
   }
 
@@ -403,9 +416,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   tx_stream_args.channels = tx_channel_nums;
 
   // tx streamer
-  tx_streamer::sptr tx_stream = usrp->get_tx_stream(tx_stream_args);
-
-  cout << "INFO: tx_stream get_max_num_samps: " << tx_stream->get_max_num_samps() << endl;
+  tx_streamer::sptr tx_stream;
+  if (transmit) {
+    tx_stream = usrp->get_tx_stream(tx_stream_args);
+    cout << "INFO: tx_stream get_max_num_samps: " << tx_stream->get_max_num_samps() << endl;
+  }
 
   /*** RX SETUP ***/
 
@@ -420,6 +435,10 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   /*** SPAWN THE TX THREAD ***/
   boost::thread_group transmit_thread;
   transmit_thread.create_thread(boost::bind(&transmit_worker, tx_stream, rx_stream));
+  
+  if (!transmit) {
+    cout << "WARNING: Transmit disabled by configuration file!" << endl;
+  }
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -472,6 +491,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // receive buffer
   size_t bytes_per_sample = convert::get_bytes_per_item(cpu_format);
   vector<char> buff(num_rx_samps * bytes_per_sample); // Buffer sized for one pulse at a time
+  vector<char> error_buff(num_rx_samps * bytes_per_sample, 0); // Pre-defined values to write in event of an error (all zeros)
   vector<void *> buffs;
   for (size_t ch = 0; ch < rx_stream->get_num_channels(); ch++) {
     buffs.push_back(&buff.front()); // TODO: I don't think this actually works for num_channels > 1
@@ -496,10 +516,20 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       
       pulses_received++;
       error_count++;
-      //continue; // TODO: Think if we want to write to file or not
+      
+      // write pre-defined error vector to file (zeros)
+      if (outfile.is_open()) {
+        outfile.write((const char*)&error_buff.front(), 
+          num_rx_samps * bytes_per_sample);
+      }
     } else {
       pulses_received++;
-      //cout << "[RX] (Chirp " << pulses_received << ") Received " << n_samps_rx << " samples" << endl;
+
+      // write RX data to file
+      if (outfile.is_open()) {
+        outfile.write((const char*)&buff.front(), 
+          n_samps_rx * bytes_per_sample);
+      }
     }
     
 
@@ -517,12 +547,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       cout << "[RX] Reached stop signal handling for outer RX loop -> break" << endl;
       cout_mutex.unlock();
       break;
-    }
-
-    // write summed data to file
-    if (outfile.is_open()) {
-      outfile.write((const char*)&buff.front(), 
-        n_samps_rx * bytes_per_sample);
     }
 
     // write gps string to file
@@ -591,9 +615,22 @@ void transmit_worker(tx_streamer::sptr& tx_stream, rx_streamer::sptr& rx_stream)
     exit(1);
   }
 
-  vector<char> tx_buff(num_tx_samps * convert::get_bytes_per_item(cpu_format));
+  // Transmit buffers
 
-  infile.read((char *)&tx_buff.front(), num_tx_samps * convert::get_bytes_per_item(cpu_format));
+  if (cpu_format != "fc32") {
+    cout << "Only cpu_format 'fc32' is supported for now." << endl;
+    // This is because we actually need chirp_unmodulated to have the correct
+    // data type to facilitate phase modulation. In the future, this could be
+    // fixed up so that it can work with any supported cpu_format, but it
+    // seems unnecessary right now.
+    exit(1);
+  }
+
+  vector<std::complex<float>> tx_buff(num_tx_samps); // Ready-to-transmit samples
+  vector<std::complex<float>> chirp_unmodulated(num_tx_samps); // Chirp samples before any phase modulation
+
+  infile.read((char *)&chirp_unmodulated.front(), num_tx_samps * convert::get_bytes_per_item(cpu_format));
+  tx_buff = chirp_unmodulated;
 
   // Transmit metadata structure
   tx_metadata_t tx_md;
@@ -615,6 +652,11 @@ void transmit_worker(tx_streamer::sptr& tx_stream, rx_streamer::sptr& rx_stream)
 
   while ((num_pulses < 0) || (pulses_scheduled < num_pulses))
   {
+    // Setup next chirp for modulation
+    if (phase_dither) {
+      transform(chirp_unmodulated.begin(), chirp_unmodulated.end(), tx_buff.begin(), std::bind1st(std::multiplies<complex<float>>(), polar((float) 1.0, get_next_phase())));
+    }
+
     /*
     The idea here is scheduler a handful of chirps ahead to let
     the transport layer (i.e. libUSB or whatever it is for ethernet)
@@ -646,7 +688,9 @@ void transmit_worker(tx_streamer::sptr& tx_stream, rx_streamer::sptr& rx_stream)
     rx_time = time_offset + (pulse_rep_int * pulses_scheduled); // TODO: How do we track timing
     tx_md.time_spec = time_spec_t(rx_time - tx_lead);
     
-    n_samp_tx = tx_stream->send(&tx_buff.front(), num_tx_samps, tx_md, 60); // TODO: Think about timeout
+    if (transmit) {
+      n_samp_tx = tx_stream->send(&tx_buff.front(), num_tx_samps, tx_md, 60); // TODO: Think about timeout
+    }
 
     // RX
     stream_cmd.time_spec = time_spec_t(rx_time);
