@@ -266,9 +266,12 @@ def remove_errors(data, skip_if_already_complete=True, allowed_file_error_types=
             raise ValueError("Errors have already been removed from this data")
 
     all_idxs = np.arange(data["radar_data"].shape[1])
-    keep_idxs = np.delete(all_idxs, np.array(list(errors.keys())))
+    err_idx = np.array(list(errors.keys()))
+    if (len(err_idx) == 0):
+        return data
+    keep_idxs = np.delete(all_idxs, err_idx)
 
-    result = data[{'pulse_idx': keep_idxs}]
+    result = data[{'pulse_idx': keep_idxs}].copy()
     result.attrs["errors_removed"] = True
     return result
 

@@ -4,11 +4,11 @@
 GENERATE:
     sample_rate: &s_rate 56e6        # Of the generated chirp, tx and rx sample rates [sps]
     chirp_type: 'linear'             # Can be 'linear'
-    chirp_bandwidth: 20e6            # [Hz]
+    chirp_bandwidth: 25e6            # [Hz]
     lo_offset_sw: 0e6               #  [Hz] lo offset to be applied digitally in chirp generation 
-    window: 'rectangular'            # Window function applied to the chirp
-    chirp_length: &chirp_len 10e-6    # [s] chirp length without zero padding
-    pulse_length: &pulse_len 10e-6    # [s] total pulse length (chirp + symmetric zero padding)    
+    window: 'kaiser14'            # Window function applied to the chirp
+    chirp_length: &chirp_len 20e-6    # [s] chirp length without zero padding
+    pulse_length: &pulse_len 20e-6    # [s] total pulse length (chirp + symmetric zero padding)    
     out_file: &ch_sent "data/chirp.bin"   # The name of the output binary file
     show_plot: False                 # Display a time-domain plot of the generated chirp
 
@@ -30,7 +30,7 @@ GPIO:
 RF0:
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 390e6          # Center Frequency (for mixing)
+    freq: 380e6          # Center Frequency (for mixing)
     lo_offset: 15e6      # LO offset [Hz]
     rx_gain: 36          # RX Gain [dB]
     tx_gain: 59.8        # TX Gain [dB] - 60.8 is -10 dBm output
@@ -55,9 +55,10 @@ CHIRP:
     rx_duration: 60e-6   # Receive duration [s]
     tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
-    pulse_rep_int: 400e-6 # Chirp period [s]
+    pulse_rep_int: 500e-6 # Chirp period [s]
     tx_lead: 0e-6        # Time between start of TX and RX[s]
     num_pulses: &num_pulses 10000        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
+    num_presums: 100
     phase_dithering: true
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit

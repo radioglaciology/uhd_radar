@@ -27,7 +27,7 @@ def generate_chirp(config):
     chirp_type = gen_params["chirp_type"]
     sample_rate = gen_params["sample_rate"]
     chirp_bandwidth = gen_params["chirp_bandwidth"]
-    offset = gen_params["lo_offset_sw"]
+    offset = gen_params.get("lo_offset_sw", 0)
     window = gen_params["window"]
     chirp_length = gen_params["chirp_length"]
     pulse_length = gen_params.get("pulse_length", chirp_length) # default to chirp_length is no pulse_length is specified
