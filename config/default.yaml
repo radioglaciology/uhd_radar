@@ -5,6 +5,7 @@ GENERATE:
     sample_rate: &s_rate 56e6        # Of the generated chirp, tx and rx sample rates [sps]
     chirp_type: 'linear'             # Can be 'linear'
     chirp_bandwidth: 20e6            # [Hz]
+    lo_offset_sw: 0e6               #  [Hz] lo offset to be applied digitally in chirp generation 
     window: 'rectangular'            # Window function applied to the chirp
     chirp_length: &chirp_len 10e-6    # [s] chirp length without zero padding
     pulse_length: &pulse_len 10e-6    # [s] total pulse length (chirp + symmetric zero padding)    
@@ -37,6 +38,7 @@ RF0:
     tx_ant: "TX/RX"
     rx_ant: "RX2"
     transmit: true       # "true" (or not set) for normal operation, set to "false" to completely disable transmit
+    tuning_args: "" # set int_n or fractional tuning args, leave as "" to do nothing
 RF1:                     # parameters for second RF channel
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]

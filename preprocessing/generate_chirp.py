@@ -27,6 +27,7 @@ def generate_chirp(config):
     chirp_type = gen_params["chirp_type"]
     sample_rate = gen_params["sample_rate"]
     chirp_bandwidth = gen_params["chirp_bandwidth"]
+    offset = gen_params["lo_offset_sw"]
     window = gen_params["window"]
     chirp_length = gen_params["chirp_length"]
     pulse_length = gen_params.get("pulse_length", chirp_length) # default to chirp_length is no pulse_length is specified
@@ -36,11 +37,14 @@ def generate_chirp(config):
     end_freq = chirp_bandwidth / 2 # Chirp goes from -BW/2 to BW/2
     start_freq = -1 * end_freq
 
+    start_freq += offset
+    end_freq += offset
+
     ts = np.arange(0, chirp_length-(1/(2*sample_rate)), 1/(sample_rate))
     ts_zp = np.arange(0, (pulse_length)-(1/(2*sample_rate)), 1/(sample_rate))
 
     if chirp_type == 'linear':
-        ph = 2*np.pi*(start_freq*ts + (end_freq - start_freq) * ts**2 / (2*chirp_length))
+        ph = 2*np.pi*((start_freq)*ts + (end_freq - start_freq) * ts**2 / (2*chirp_length))
     elif chirp_type == 'hyperbolic':
         ph = 2*np.pi*(-1*start_freq*end_freq*chirp_length/(end_freq-start_freq))*np.log(1- (end_freq-start_freq)*ts/(end_freq*chirp_length))
     else:
@@ -65,6 +69,8 @@ def generate_chirp(config):
         return None, None
 
     chirp_complex = np.pad(chirp_complex, (int(np.floor(ts_zp.size - ts.size)/2),), 'constant')
+
+    chirp_complex = chirp_complex
 
     return ts_zp, chirp_complex
 
