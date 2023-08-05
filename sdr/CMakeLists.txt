@@ -13,12 +13,14 @@ set(CMAKE_LIBRARY_PATH "$ENV{CONDA_PREFIX}/lib")
 set(CMAKE_INCLUDE_PATH "$ENV{CONDA_PREFIX}/include")
 
 ### Configure Compiler ########################################################
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" AND ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
     set(CMAKE_EXE_LINKER_FLAGS "-lthr ${CMAKE_EXE_LINKER_FLAGS}")
-    set(CMAKE_CXX_FLAGS "-stdlib=libc++ -std=c++17 ${CMAKE_CXX_FLAGS}")
+    set(CMAKE_CXX_FLAGS "-stdlib=libc++ ${CMAKE_CXX_FLAGS}")
 endif()
+
+set(CMAKE_CXX_FLAGS "-Wno-psabi ${CMAKE_CXX_FLAGS}")
 
 ### Set up build environment ##################################################
 # Choose a static or shared-library build (shared is default, and static will
