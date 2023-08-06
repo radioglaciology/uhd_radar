@@ -84,6 +84,7 @@ double tr_off_trail;
 double pulse_rep_int;
 double tx_lead;
 int num_pulses;
+int num_presums;
 int max_chirps_per_file;
 bool phase_dither;
 
@@ -167,7 +168,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   pulse_rep_int = chirp["pulse_rep_int"].as<double>();
   tx_lead = chirp["tx_lead"].as<double>();
   num_pulses = chirp["num_pulses"].as<int>();
-  //num_presums = chirp["num_presums"].as<int>(); // TODO: No more presum support
+  num_presums = chirp["num_presums"].as<int>(1); // Default of 1 is equivalent to no pre-summing
   phase_dither = chirp["phase_dithering"].as<bool>(false);
 
   YAML::Node files = config["FILES"];
@@ -187,6 +188,19 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   set_thread_priority_safe(1.0, true);
   
   signal(SIGINT, &sig_int_handler);
+
+  /*** VERSION INFO ***/
+
+  // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+  cout << "[VERSION] 0.0.1" << endl; // Version numbers: First number:  Increment for major new versions
+                                     //                  Second number: Increment for any changes that you expect to matter to post-processing
+                                     //                  Third number:  Increment for any change
+  // Human-readable notes -- explain notable behavior for humans
+  cout << "Note: Phase inversion is performed in this code." << endl;
+  cout << "Note: Pre-summing is supported. If used, each sample written will have num_presums error-free samples averaged in." << endl;
+  cout << "Note: Nothing is written to the file for error pulses." << endl;
+  cout << "Note: A full num_pulses of error-free chirp data will be collected. ";
+  cout << "(Total number of TX chirps will be num_pulses + # errors)" << endl;
 
   /*** SANITY CHECKS ***/
   
@@ -488,25 +502,40 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   string gps_data;
 
+  if (cpu_format != "fc32") {
+    cout << "Only cpu_format 'fc32' is supported for now." << endl;
+    // This is because we actually need buff and sample_sum to have the correct
+    // data type to facilitate phase modulation and summing. In the future, this could be
+    // fixed up so that it can work with any supported cpu_format, but it
+    // seems unnecessary right now.
+    exit(1);
+  }
+
   // receive buffer
   size_t bytes_per_sample = convert::get_bytes_per_item(cpu_format);
-  vector<char> buff(num_rx_samps * bytes_per_sample); // Buffer sized for one pulse at a time
-  vector<char> error_buff(num_rx_samps * bytes_per_sample, 0); // Pre-defined values to write in event of an error (all zeros)
+  vector<complex<float>> sample_sum(num_rx_samps, 0); // Sum error-free RX pulses into this vector
+
+  vector<complex<float>> buff(num_rx_samps); // Buffer sized for one pulse at a time
   vector<void *> buffs;
   for (size_t ch = 0; ch < rx_stream->get_num_channels(); ch++) {
     buffs.push_back(&buff.front()); // TODO: I don't think this actually works for num_channels > 1
   }
-  size_t n_samps_rx;
+  size_t n_samps_in_rx_buff;
   rx_metadata_t rx_md; // Captures metadata from rx_stream->recv() -- specifically primarily timeouts and other errors
+
+  float inversion_phase; // Store phase to use for phase inversion of this chirp
+  int last_pulse_num_written = -1; // Index number (pulses_received - error_count) of last sample written to outfile
 
   // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
   cout << "[START] Beginning main loop" << endl;
 
   while ((num_pulses < 0) || (pulses_received < num_pulses)) {
 
-    n_samps_rx = rx_stream->recv(buffs, num_rx_samps, rx_md, 60.0, false); // TODO: Think about timeout
+    n_samps_in_rx_buff = rx_stream->recv(buffs, num_rx_samps, rx_md, 60.0, false); // TODO: Think about timeout
 
-    //cout << "[RX] Received metadata: " << rx_md.to_pp_string() << endl;
+    if (phase_dither) {
+      inversion_phase = -1.0 * get_next_phase(false); // Get next phase from the generator each time to keep in sequence with TX
+    }
 
     if (rx_md.error_code != rx_metadata_t::ERROR_CODE_NONE){
       // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
@@ -516,30 +545,57 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       
       pulses_received++;
       error_count++;
-      
-      // write pre-defined error vector to file (zeros)
-      if (outfile.is_open()) {
-        outfile.write((const char*)&error_buff.front(), 
-          num_rx_samps * bytes_per_sample);
-      }
+    } else if (n_samps_in_rx_buff != num_rx_samps) {
+      // Unexpected number of samples received in buffer!
+      // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+      cout_mutex.lock();
+      cout << "[ERROR] (Chirp " << pulses_received << ") Unexpected number of samples in the RX buffer.";
+      cout << " Got: " << n_samps_in_rx_buff << " Expected: " << num_rx_samps << endl;
+      cout << "Note: rx_stream->recv can return less than the expected number of samples in some situations, ";
+      cout << "but it's not currently supported by this code." << endl;
+      cout_mutex.unlock();
+      // If you encounter this error, one possible reason is that the buffer sizes set in your transport parameters are too small.
+      // For libUSB-based transport, recv_frame_size should be at least the size of num_rx_samps.
+
+      pulses_received++;
+      error_count++;
     } else {
       pulses_received++;
 
+      if (phase_dither) {
+        // Undo phase modulation and divide by num_presums in one go
+        transform(buff.begin(), buff.end(), buff.begin(), std::bind1st(std::multiplies<complex<float>>(), polar((float) 1.0/num_presums, inversion_phase)));
+      } else if (num_presums != 1) {
+        // Only divide by num_presums
+        transform(buff.begin(), buff.end(), buff.begin(), std::bind1st(std::multiplies<complex<float>>(), 1.0/num_presums));
+      }
+
+      // Add to sample_sum
+      transform(sample_sum.begin(), sample_sum.end(), buff.begin(), sample_sum.begin(), plus<complex<float>>());
+    }
+
+    // Check if we have a full sample_sum ready to write to file
+    if (((pulses_received - error_count) > last_pulse_num_written) && ((pulses_received - error_count) % num_presums == 0)) {
+      // As each sample is added, it has phase inversion applied and is divided by # presums, so no additional work to do here.
       // write RX data to file
       if (outfile.is_open()) {
-        outfile.write((const char*)&buff.front(), 
-          n_samps_rx * bytes_per_sample);
+        outfile.write((const char*)&sample_sum.front(), 
+          num_rx_samps * sizeof(complex<float>));
+      } else {
+        cout_mutex.lock();
+        cout << "Cannot write to outfile!" << endl;
+        cout_mutex.unlock();
+        exit(1);
       }
+      fill(sample_sum.begin(), sample_sum.end(), complex<float>(0,0)); // Zero out sum for next time
+      last_pulse_num_written = pulses_received - error_count;
     }
-    
-
-    //receive_samples(rx_stream, num_rx_samps, sample_sum, chirps_sent);
 
     // get gps data
-    if (clk_ref == "gpsdo" && ((pulses_received % 100000) == 0)) {
+    /*if (clk_ref == "gpsdo" && ((pulses_received % 100000) == 0)) {
       gps_data = usrp->get_mboard_sensor("gps_gprmc").to_pp_string();
       //cout << gps_data << endl;
-    }
+    }*/
 
     // check if someone wants to stop
     if (stop_signal_called) {
@@ -550,9 +606,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     }
 
     // write gps string to file
-    if (clk_ref == "gpsdo") {
+    /*if (clk_ref == "gpsdo") {
       boost::asio::async_write(gps_stream, boost::asio::buffer(gps_data + "\n"), gps_asio_handler);
-    }
+    }*/
 
     if ( (max_chirps_per_file > 0) && (int(pulses_received / max_chirps_per_file) > save_file_index)) {
       outfile.close();
@@ -654,7 +710,7 @@ void transmit_worker(tx_streamer::sptr& tx_stream, rx_streamer::sptr& rx_stream)
   {
     // Setup next chirp for modulation
     if (phase_dither) {
-      transform(chirp_unmodulated.begin(), chirp_unmodulated.end(), tx_buff.begin(), std::bind1st(std::multiplies<complex<float>>(), polar((float) 1.0, get_next_phase())));
+      transform(chirp_unmodulated.begin(), chirp_unmodulated.end(), tx_buff.begin(), std::bind1st(std::multiplies<complex<float>>(), polar((float) 1.0, get_next_phase(true))));
     }
 
     /*

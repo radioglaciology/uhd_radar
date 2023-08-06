@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    vector<float> phases = get_next_n_phases(n);
+    vector<float> phases = get_next_n_phases(n, true);
     string filename = argv[2];
 
     ofstream outputFile(filename, ios::binary | ios::out);

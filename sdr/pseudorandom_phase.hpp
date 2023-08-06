@@ -5,10 +5,12 @@
 
 using namespace std;
 
-// Random generator for phaase modulation
-inline mt19937 random_generator(0);
+// Random generators for phaase modulation
+// Seed is identical (and hard-coded) so they will each produce the same sequence
+inline mt19937 random_generator_tx(0); // Used on transmit for phase modulation
+inline mt19937 random_generator_rx(0); // Used on receive for inverting phase modulation
 
-float get_next_phase(); // Return a single float generated from random_generator
-vector<float> get_next_n_phases(int n); // Return a vector of the next n phases from random_generator
+float get_next_phase(bool transmit); // Return a single float generated from random_generator
+vector<float> get_next_n_phases(int n, bool transmit); // Return a vector of the next n phases from random_generator
 
 #endif // PSEUDORANDOM_PHASE_HPP
