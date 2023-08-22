@@ -573,7 +573,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
           // If you encounter this error, one possible reason is that the buffer sizes set in your transport parameters are too small.
           // For libUSB-based transport, recv_frame_size should be at least the size of num_rx_samps.
         }
-        if(num_rx_samps < n_samps_in_rx_buff + intermediate_position) {
+        if (num_rx_samps < n_samps_in_rx_buff + intermediate_position) {
           fill(intermediate_sum.begin() + intermediate_position, intermediate.end(), buff.begin(), buff.begin() + (num_rx_samps - intermediate_position));
           // Fill rest of space in intermediate buffer
           overflow_sum.push_back(intermediate_sum( num_rx_samps + intermediate_position + 1, intermediate_sum.end()));
