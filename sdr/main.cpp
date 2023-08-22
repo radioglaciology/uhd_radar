@@ -576,7 +576,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
         if(num_rx_samps < n_samps_in_rx_buff + intermediate_position) {
           std::copy(buff.begin(), buff.begin() + (num_rx_samps - intermediate_position), intermediate_sum.begin() + intermediate_position);
           // Fill rest of space in intermediate buffer
-          overflow_sum = intermediate_sum.begin() + num_rx_samps + intermediate_position + 1: intermediate_sum.end()];
+          std::copy(buff.begin() + num_rx_samps - intermediate_position + 1, buff.end(), std::back_inserter(overflow_sum));
           // Add the rest of samples to an overflow buffer which will be added to the intermediate buffer in the next iteration
           //intermediate position
 
