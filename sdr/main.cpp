@@ -514,6 +514,13 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // receive buffer
   size_t bytes_per_sample = convert::get_bytes_per_item(cpu_format);
   vector<complex<float>> sample_sum(num_rx_samps, 0); // Sum error-free RX pulses into this vector
+  //
+  vector<complex<float>> intermediate_sum(num_rx_samps, 0); // Sum intermediate RX pulses
+  vector<complex<float>> overflow_sum;
+  //
+  int intermediate_position = 0;
+  //track poistion
+  
 
   vector<complex<float>> buff(num_rx_samps); // Buffer sized for one pulse at a time
   vector<void *> buffs;
@@ -530,49 +537,67 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   cout << "[START] Beginning main loop" << endl;
 
   while ((num_pulses < 0) || (pulses_received < num_pulses)) {
-
-    n_samps_in_rx_buff = rx_stream->recv(buffs, num_rx_samps, rx_md, 60.0, false); // TODO: Think about timeout
-
-    if (phase_dither) {
-      inversion_phase = -1.0 * get_next_phase(false); // Get next phase from the generator each time to keep in sequence with TX
-    }
-
-    if (rx_md.error_code != rx_metadata_t::ERROR_CODE_NONE){
-      // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
-      cout_mutex.lock();
-      cout << "[ERROR] (Chirp " << pulses_received << ") Receiver error: " << rx_md.strerror() << "\n";
-      cout_mutex.unlock();
-      
-      pulses_received++;
-      error_count++;
-    } else if (n_samps_in_rx_buff != num_rx_samps) {
-      // Unexpected number of samples received in buffer!
-      // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
-      cout_mutex.lock();
-      cout << "[ERROR] (Chirp " << pulses_received << ") Unexpected number of samples in the RX buffer.";
-      cout << " Got: " << n_samps_in_rx_buff << " Expected: " << num_rx_samps << endl;
-      cout << "Note: rx_stream->recv can return less than the expected number of samples in some situations, ";
-      cout << "but it's not currently supported by this code." << endl;
-      cout_mutex.unlock();
-      // If you encounter this error, one possible reason is that the buffer sizes set in your transport parameters are too small.
-      // For libUSB-based transport, recv_frame_size should be at least the size of num_rx_samps.
-
-      pulses_received++;
-      error_count++;
-    } else {
-      pulses_received++;
-
-      if (phase_dither) {
-        // Undo phase modulation and divide by num_presums in one go
-        transform(buff.begin(), buff.end(), buff.begin(), std::bind1st(std::multiplies<complex<float>>(), polar((float) 1.0/num_presums, inversion_phase)));
-      } else if (num_presums != 1) {
-        // Only divide by num_presums
-        transform(buff.begin(), buff.end(), buff.begin(), std::bind1st(std::multiplies<complex<float>>(), 1.0/num_presums));
+    //add loop 
+      //check error
+      //check how many samps, write samps into intermediate storage
+      //if enough samples, process and add to sample sum
+      if(!overflow_sum.empty()) {
+        intermediate_sum.push_back(overflow_sum);
+        intermediate_position += overflow_sum.size();
+        overflow_sum.clear();
       }
 
+      while(intermediate_position < num_rx_samples) {
+        n_samps_in_rx_buff = rx_stream->recv(buffs, num_rx_samps, rx_md, 60.0, false);
+
+        if (phase_dither) {
+          inversion_phase = -1.0 * get_next_phase(false); // Get next phase from the generator each time to keep in sequence with TX
+        }
+
+        if (rx_md.error_code != rx_metadata_t::ERROR_CODE_NONE){
+          // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+          cout_mutex.lock();
+          cout << "[ERROR] (Chirp " << pulses_received << ") Receiver error: " << rx_md.strerror() << "\n";
+          cout_mutex.unlock();
+      
+          pulses_received++;
+          error_count++;
+        } else if (n_samps_in_rx_buff != num_rx_samps) {
+            // Unexpected number of samples received in buffer!
+          // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
+          cout_mutex.lock();
+          cout << "[ERROR] (Chirp " << pulses_received << ") Unexpected number of samples in the RX buffer.";
+          cout << " Got: " << n_samps_in_rx_buff << " Expected: " << num_rx_samps << endl;
+          cout << "Note: Adding to Intermediate Sums" << endl;
+          cout_mutex.unlock();
+          // If you encounter this error, one possible reason is that the buffer sizes set in your transport parameters are too small.
+          // For libUSB-based transport, recv_frame_size should be at least the size of num_rx_samps.
+        }
+        if(num_rx_samps < n_samps_in_rx_buff + intermediate_position) {
+          fill(intermediate_sum.begin() + intermediate_position, intermediate.end(), buff.begin(), buff.begin() + (num_rx_samps - intermediate_position));
+          // Fill rest of space in intermediate buffer
+          overflow_sum.push_back(intermediate_sum( num_rx_samps + intermediate_position + 1, intermediate_sum.end()));
+          // Add the rest of samples to an overflow buffer which will be added to the intermediate buffer in the next iteration
+          //intermediate position
+
+        } else {
+        intermediate_sum.push_back(buff);
+        intermediate_position += n_samps_in_rx_buff;
+        }
+      }
+      if (phase_dither) {
+        // Undo phase modulation and divide by num_presums in one go
+        transform(intermediate_sum.begin(), intermediate_sum.end(), intermediate_sum.begin(), std::bind1st(std::multiplies<complex<float>>(), polar((float) 1.0/num_presums, inversion_phase)));
+      } else if (num_presums != 1) {
+        // Only divide by num_presums
+        transform(intermediate_sum.begin(), intermediate_sum.end(), intermediate_sum.begin(), std::bind1st(std::multiplies<complex<float>>(), 1.0/num_presums));
+      }
       // Add to sample_sum
-      transform(sample_sum.begin(), sample_sum.end(), buff.begin(), sample_sum.begin(), plus<complex<float>>());
-    }
+      transform(sample_sum.begin(), sample_sum.end(), intermediate_sum.begin(), intermediate_sum.begin(), plus<complex<float>>());
+      fill(intermediate_sum.begin(), intermediate_sum.end(), complex<float>(0,0)); // Zero out sum for next time
+      intermediate_position = 0;
+      num_pulses++;
+
 
     // Check if we have a full sample_sum ready to write to file
     if (((pulses_received - error_count) > last_pulse_num_written) && ((pulses_received - error_count) % num_presums == 0)) {
