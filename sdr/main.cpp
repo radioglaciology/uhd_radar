@@ -542,12 +542,12 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       //check how many samps, write samps into intermediate storage
       //if enough samples, process and add to sample sum
       if(!overflow_sum.empty()) {
-        intermediate_sum.push_back(overflow_sum);
+        std::copy(overflow_sum.begin(), overflow_sum.end(), intermediate_sum.begin());
         intermediate_position += overflow_sum.size();
         overflow_sum.clear();
       }
 
-      while(intermediate_position < num_rx_samples) {
+      while(intermediate_position < num_rx_samps) {
         n_samps_in_rx_buff = rx_stream->recv(buffs, num_rx_samps, rx_md, 60.0, false);
 
         if (phase_dither) {
@@ -574,14 +574,14 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
           // For libUSB-based transport, recv_frame_size should be at least the size of num_rx_samps.
         }
         if(num_rx_samps < n_samps_in_rx_buff + intermediate_position) {
-          fill(intermediate_sum.begin() + intermediate_position, intermediate.end(), buff.begin(), buff.begin() + (num_rx_samps - intermediate_position));
+          std::copy(buff.begin(), buff.begin() + (num_rx_samps - intermediate_position), intermediate_sum.begin() + intermediate_position);
           // Fill rest of space in intermediate buffer
-          overflow_sum.push_back(intermediate_sum( num_rx_samps + intermediate_position + 1, intermediate_sum.end()));
+          overflow_sum = intermediate_sum.begin() + num_rx_samps + intermediate_position + 1: intermediate_sum.end()];
           // Add the rest of samples to an overflow buffer which will be added to the intermediate buffer in the next iteration
           //intermediate position
 
         } else {
-        intermediate_sum.push_back(buff);
+        std::copy(buff.begin(), buff.end(), intermediate_sum.begin() + intermediate_position);
         intermediate_position += n_samps_in_rx_buff;
         }
       }
