@@ -535,6 +535,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
   cout << "[START] Beginning main loop" << endl;
+  int count = 0;
 
   while ((num_pulses < 0) || (pulses_received < num_pulses)) {
     //add loop 
@@ -546,9 +547,14 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
         intermediate_position += overflow_sum.size();
         overflow_sum.clear();
       }
+      //cout<< "Pulses: " << pulses_received << endl;
 
       while(intermediate_position < num_rx_samps) {
+        count++;
+        //cout << count << endl;
         n_samps_in_rx_buff = rx_stream->recv(buffs, num_rx_samps, rx_md, 60.0, false);
+        //cout << "intermediate position: " << intermediate_position << endl;
+        //cout << "num_rx_samps: " << num_rx_samps << endl;
 
         if (phase_dither) {
           inversion_phase = -1.0 * get_next_phase(false); // Get next phase from the generator each time to keep in sequence with TX
@@ -593,10 +599,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
         transform(intermediate_sum.begin(), intermediate_sum.end(), intermediate_sum.begin(), std::bind1st(std::multiplies<complex<float>>(), 1.0/num_presums));
       }
       // Add to sample_sum
-      transform(sample_sum.begin(), sample_sum.end(), intermediate_sum.begin(), intermediate_sum.begin(), plus<complex<float>>());
+      //cout << "bye "<< endl;
+      transform(sample_sum.begin(), sample_sum.end(), intermediate_sum.begin(), sample_sum.begin(), plus<complex<float>>());
       fill(intermediate_sum.begin(), intermediate_sum.end(), complex<float>(0,0)); // Zero out sum for next time
       intermediate_position = 0;
-      num_pulses++;
+      pulses_received++;
 
 
     // Check if we have a full sample_sum ready to write to file
