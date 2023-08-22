@@ -574,7 +574,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
           // For libUSB-based transport, recv_frame_size should be at least the size of num_rx_samps.
         }
         if(num_rx_samps < n_samps_in_rx_buff + intermediate_position) {
-          fill(intermediate_sum.begin() + intermediate_position, intermediate.end(), buff.begin(), buff.begin() + (num_rx_samps - intermediate_position));
+          std::copy(buff.begin(), buff.begin() + (num_rx_samps - intermediate_position), intermediate_sum.begin() + intermediate_position);
           // Fill rest of space in intermediate buffer
           std::copy(buff.begin() + num_rx_samps - intermediate_position + 1, buff.end(), std::back_inserter(overflow_sum));
           // Add the rest of samples to an overflow buffer which will be added to the intermediate buffer in the next iteration
