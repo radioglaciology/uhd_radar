@@ -587,8 +587,12 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
           //intermediate position
 
         } else {
-        std::copy(buff.begin(), buff.end(), intermediate_sum.begin() + intermediate_position);
+          cout << "before " << buff[200] << endl;
+          cout << "intermediate position: " << intermediate_position << endl;
+        //std::copy(buff.begin(), buff.end(), intermediate_sum.begin() + intermediate_position);
+        transform(intermediate_sum.begin() + intermediate_position, intermediate_sum.begin() + n_samps_in_rx_buff, buff.begin(), intermediate_sum.begin(), plus<complex<float>>());
         intermediate_position += n_samps_in_rx_buff;
+          cout << "after " << intermediate_sum[200] << endl;
         }
       }
       if (phase_dither) {
