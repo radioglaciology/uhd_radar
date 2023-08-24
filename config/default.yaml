@@ -2,11 +2,11 @@
 
 # ----------------------- Chirp generation ------------------------ #
 GENERATE:
-    sample_rate: &s_rate 56e6        # Of the generated chirp, tx and rx sample rates [sps]
+    sample_rate: &s_rate 35e6        # Of the generated chirp, tx and rx sample rates [sps]
     chirp_type: 'linear'             # Can be 'linear'
-    chirp_bandwidth: 25e6            # [Hz]
+    chirp_bandwidth: 16e6            # [Hz]
     lo_offset_sw: 0e6               #  [Hz] lo offset to be applied digitally in chirp generation 
-    window: 'kaiser14'            # Window function applied to the chirp
+    window: 'rectangular'            # Window function applied to the chirp
     chirp_length: &chirp_len 20e-6    # [s] chirp length without zero padding
     pulse_length: &pulse_len 20e-6    # [s] total pulse length (chirp + symmetric zero padding)    
     out_file: &ch_sent "data/chirp.bin"   # The name of the output binary file
@@ -17,7 +17,7 @@ DEVICE:
     device_args: "num_recv_frames=700,num_send_frames=700,recv_frame_size=11000,send_frame_size=11000"   # device address
     subdev: "A:A"
     clk_ref: "internal"
-    clk_rate: 56e6       # Clock Rate [Hz]
+    clk_rate: 35e6       # Clock Rate [Hz]
     tx_channels: "0"
     rx_channels: "0"
     cpu_format: "fc32" # CPU-side format    - see https://files.ettus.com/manual/structuhd_1_1stream__args__t.html#a602a64b4937a85dba84e7f724387e252
@@ -30,14 +30,14 @@ GPIO:
 RF0:
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 380e6          # Center Frequency (for mixing)
-    lo_offset: 15e6      # LO offset [Hz]
+    freq: 330e6          # Center Frequency (for mixing)
+    lo_offset: 10e6      # LO offset [Hz]
     rx_gain: 36          # RX Gain [dB]
     tx_gain: 59.8        # TX Gain [dB] - 60.8 is -10 dBm output
     bw: 30e6             # TX/RW Bandwidth [Hz]
     tx_ant: "TX/RX"
     rx_ant: "RX2"
-    transmit: true       # "true" (or not set) for normal operation, set to "false" to completely disable transmit
+    transmit: false       # "true" (or not set) for normal operation, set to "false" to completely disable transmit
     tuning_args: "" # set int_n or fractional tuning args, leave as "" to do nothing
 RF1:                     # parameters for second RF channel
     rx_rate: *s_rate     # RX Sample Rate [sps]
@@ -52,12 +52,12 @@ RF1:                     # parameters for second RF channel
 CHIRP:
     time_offset: 1       # Time before first receive [s]
     tx_duration: *pulse_len # Transmission duration [s]
-    rx_duration: 60e-6   # Receive duration [s]
+    rx_duration: 1   # Receive duration [s]
     tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
-    pulse_rep_int: 500e-6 # Chirp period [s]
+    pulse_rep_int: 3 # Chirp period [s]
     tx_lead: 0e-6        # Time between start of TX and RX[s]
-    num_pulses: &num_pulses 100        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
+    num_pulses: &num_pulses 10        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
     num_presums: 1
     phase_dithering: true
 FILES:
