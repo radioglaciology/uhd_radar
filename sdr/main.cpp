@@ -516,10 +516,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   vector<complex<float>> sample_sum(num_rx_samps, 0); // Sum error-free RX pulses into this vector
   //
   vector<complex<float>> intermediate_sum(num_rx_samps, 0); // Sum intermediate RX pulses
-  vector<complex<float>> overflow_sum(num_rx_samps, 0);
+  vector<complex<float>> overflow_sum;
   //
   int intermediate_position = 0;
-  int overflow_position = 0;
   //track poistion
   
 
@@ -543,16 +542,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       //check error
       //check how many samps, write samps into intermediate storage
       //if enough samples, process and add to sample sum
-      //if(!overflow_sum.empty()) {
-      //  std::copy(overflow_sum.begin(), overflow_sum.end(), intermediate_sum.begin());
-      //  intermediate_position += overflow_sum.size();
-      //  overflow_sum.clear();
-      //}
-      transform(intermediate_sum.begin(), intermediate_sum.end(), overflow_sum.begin(), intermediate_sum.begin(), plus<complex<float>>());
-      intermediate_position = overflow_position;
-      fill(overflow_sum.begin(), overflow_sum.end(), complex<float>(0,0));
-      overflow_position = 0;
-
+      if(!overflow_sum.empty()) {
+        std::copy(overflow_sum.begin(), overflow_sum.end(), intermediate_sum.begin());
+        intermediate_position += overflow_sum.size();
+        overflow_sum.clear();
+      }
       //cout<< "Pulses: " << pulses_received << endl;
 
       while(intermediate_position < num_rx_samps) {
@@ -603,7 +597,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
           // Add the rest of samples to an overflow buffer which will be added to the intermediate buffer in the next iteration
 
         } else {
-          //cout << "before " << buff[200] << endl;
+          cout << "before " << buff[200] << endl;
           //cout << "intermediate position: " << intermediate_position << endl;
         //std::copy(buff.begin(), buff.end(), intermediate_sum.begin() + intermediate_position);
         transform(intermediate_sum.begin() + intermediate_position, intermediate_sum.end(), buff.begin(), intermediate_sum.begin() + intermediate_position, plus<complex<float>>());
@@ -636,7 +630,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       //cout << "cleared " << intermediate_sum[200] << endl;
       intermediate_position = 0;
       pulses_received++;
-      //cout << "errors: " << error_count << endl;
+      cout << "errors: " << error_count << endl;
 
 
     // Check if we have a full sample_sum ready to write to file
@@ -646,7 +640,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       if (outfile.is_open()) {
         outfile.write((const char*)&sample_sum.front(), 
           num_rx_samps * sizeof(complex<float>));
-          //cout << "writing to file" << endl;
+          cout << "writing to file" << endl;
       } else {
         cout_mutex.lock();
         cout << "Cannot write to outfile!" << endl;
