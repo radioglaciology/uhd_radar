@@ -542,9 +542,14 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   while ((num_pulses < 0) || (pulses_received < num_pulses)) {
       
       transform(intermediate_sum.begin(), intermediate_sum.end(), overflow_sum.begin(), intermediate_sum.begin(), plus<complex<float>>());
+      //cout << "over" << overflow_position << endl;
       intermediate_position = overflow_position;
       fill(overflow_sum.begin(), overflow_sum.end(), complex<float>(0,0));
       overflow_position = 0;
+      //cout << "Int " << intermediate_position << endl;
+      //cout << "Num " << num_rx_samps << endl;
+      //cout << count << endl;
+      //count++;
   
 
       while(intermediate_position < num_rx_samps) {
@@ -593,40 +598,45 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
           cout_mutex.lock();
           cout << "[ERROR] (Chirp " << pulses_received << ") Unexpected number of samples in the RX buffer.";
           cout << " Got: " << n_samps_in_rx_buff << " Expected: " << num_rx_samps << endl;
-          cout << "Note: Adding to Intermediate Sums" << endl;
+          //cout << "Note: Adding to Intermediate Sums" << endl;
           cout_mutex.unlock();
           // If you encounter this error, one possible reason is that the buffer sizes set in your transport parameters are too small.
           // For libUSB-based transport, recv_frame_size should be at least the size of num_rx_samps.
         }
         if(num_rx_samps < n_samps_in_rx_buff + intermediate_position) {
-          intermediate_position = num_rx_samps;
+          //cout << "yay" << endl;
+          //cout << "over_pos" << overflow_position << "n_samps_in_rx_buff" << n_samps_in_rx_buff << "num_rx_samps" << num_rx_samps << "int_pos" << intermediate_position << endl;
+          //intermediate_position = num_rx_samps;
           //cout << "overflow " << endl;
           //cout << intermediate_position << endl;
           // ADD ERROR IF TO MUCH DATA FOR OVERFLOW
           transform(intermediate_sum.begin() + intermediate_position, intermediate_sum.end() +1 , buff.begin(), intermediate_sum.begin() + intermediate_position, plus<complex<float>>());
           // Fill rest of space in intermediate buffer
           transform(overflow_sum.begin(), overflow_sum.begin() + n_samps_in_rx_buff - (num_rx_samps - intermediate_position), buff.begin() + num_rx_samps - intermediate_position , overflow_sum.begin(), plus<complex<float>>());
-          overflow_position = n_samps_in_rx_buff -(num_rx_samps - intermediate_position) ;
+          overflow_position = n_samps_in_rx_buff -(num_rx_samps - intermediate_position) ; // DOUBLE CHECK
+          //overflow_position = intermediate_position; // DOUBLE CHECK
+          //cout << "over_pos_2" << overflow_position << endl;
           // Add the rest of samples to an overflow buffer which will be added to the intermediate buffer in the next iteration
+          intermediate_position = num_rx_samps;
 
         } else {
           //cout << "before " << buff[200] << endl;
           //cout << "intermediate position: " << intermediate_position << endl;
         //std::copy(buff.begin(), buff.end(), intermediate_sum.begin() + intermediate_position);
-        //transform(intermediate_sum.begin() + intermediate_position, intermediate_sum.end(), buff.begin(), intermediate_sum.begin() + intermediate_position, plus<complex<float>>());
+        transform(intermediate_sum.begin() + intermediate_position, intermediate_sum.end(), buff.begin(), intermediate_sum.begin() + intermediate_position, plus<complex<float>>());
         //cout << "before add: " << intermediate_position << endl;
-        //intermediate_position += n_samps_in_rx_buff;
+        intermediate_position += n_samps_in_rx_buff;
         //cout << "no overflow " << endl;
         //cout << "after add: " << intermediate_position << endl;
         //cout << "last" << intermediate_sum[59132] << endl;
         //cout << "buff" << buff[500] << endl;
         //cout << "next " << intermediate_sum[59133] << endl;
         //fill(buff.begin(), buff.end(), complex<float>(0,0)); 
-        cout << "end inner"<< endl;
+        //cout << "end inner"<< endl;
           
         }
       }
-      cout << "exited inner" << endl;
+      //cout << "exited inner" << endl;
       if (phase_dither) {
         // Undo phase modulation and divide by num_presums in one go
         transform(intermediate_sum.begin(), intermediate_sum.end()+1, intermediate_sum.begin(), std::bind(std::multiplies<complex<float>>(), std::placeholders::_1, polar((float) 1.0/num_presums, inversion_phase)));
@@ -644,7 +654,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       //cout << "cleared " << intermediate_sum[200] << endl;
       intermediate_position = 0;
       pulses_received++;
-      cout << "end outer" << endl;
+      //cout << "end outer" << endl;
+      //cout << "int" << intermediate_position << endl;
       cout << "errors: " << error_count << endl;
 
 
