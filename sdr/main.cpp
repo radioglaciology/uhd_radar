@@ -516,7 +516,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   vector<complex<float>> sample_sum(num_rx_samps, 0); // Sum error-free RX pulses into this vector
   //
   vector<complex<float>> intermediate_sum(num_rx_samps, 0); // Sum intermediate RX pulses
-  vector<complex<float>> overflow_sum;
+  vector<complex<float>> overflow_sum(num_rx_samps, 0);
   //
   int intermediate_position = 0;
   int overflow_position = 0;
@@ -537,6 +537,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
   cout << "[START] Beginning main loop" << endl;
   int count = 0;
+  
 
   while ((num_pulses < 0) || (pulses_received < num_pulses)) {
       
@@ -563,6 +564,20 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
           inversion_phase = -1.0 * get_next_phase(false); // Get next phase from the generator each time to keep in sequence with TX
         }
         //cout << count << endl;
+        //if (rx_md.error_code == rx_metadata_t::ERROR_CODE_OVERFLOW) {
+          // Access the error information structure
+        //  ErrorInfo error_info = rx_stream->getErrorInfo(); // Hypothetical function to get error info
+    
+          // Check the out_of_sequence marker
+          //bool is_sequence_error = error_info.out_of_sequence;
+
+         // if (is_sequence_error) {
+        //    cout << "sequence error" << endl;
+         // } else {
+         //   cout << "overflow error" << endl;
+         // }
+        //}
+
 
         if (rx_md.error_code != rx_metadata_t::ERROR_CODE_NONE){
           // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
@@ -572,8 +587,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       
           pulses_received++;
           error_count++;
-        }
-        if (n_samps_in_rx_buff != num_rx_samps) {
+        } else if (n_samps_in_rx_buff != num_rx_samps) {
             // Unexpected number of samples received in buffer!
           // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
           cout_mutex.lock();
@@ -585,11 +599,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
           // For libUSB-based transport, recv_frame_size should be at least the size of num_rx_samps.
         }
         if(num_rx_samps < n_samps_in_rx_buff + intermediate_position) {
-           intermediate_position = num_rx_samps;
+          intermediate_position = num_rx_samps;
           //cout << "overflow " << endl;
           //cout << intermediate_position << endl;
           // ADD ERROR IF TO MUCH DATA FOR OVERFLOW
-          transform(intermediate_sum.begin() + intermediate_position, intermediate_sum.end(), buff.begin(), intermediate_sum.begin() + intermediate_position, plus<complex<float>>());
+          transform(intermediate_sum.begin() + intermediate_position, intermediate_sum.end() +1 , buff.begin(), intermediate_sum.begin() + intermediate_position, plus<complex<float>>());
           // Fill rest of space in intermediate buffer
           transform(overflow_sum.begin(), overflow_sum.begin() + n_samps_in_rx_buff - (num_rx_samps - intermediate_position), buff.begin() + num_rx_samps - intermediate_position , overflow_sum.begin(), plus<complex<float>>());
           overflow_position = n_samps_in_rx_buff -(num_rx_samps - intermediate_position) ;
@@ -599,15 +613,15 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
           //cout << "before " << buff[200] << endl;
           //cout << "intermediate position: " << intermediate_position << endl;
         //std::copy(buff.begin(), buff.end(), intermediate_sum.begin() + intermediate_position);
-        transform(intermediate_sum.begin() + intermediate_position, intermediate_sum.end(), buff.begin(), intermediate_sum.begin() + intermediate_position, plus<complex<float>>());
+        //transform(intermediate_sum.begin() + intermediate_position, intermediate_sum.end(), buff.begin(), intermediate_sum.begin() + intermediate_position, plus<complex<float>>());
         //cout << "before add: " << intermediate_position << endl;
-        intermediate_position += n_samps_in_rx_buff;
+        //intermediate_position += n_samps_in_rx_buff;
         //cout << "no overflow " << endl;
         //cout << "after add: " << intermediate_position << endl;
         //cout << "last" << intermediate_sum[59132] << endl;
         //cout << "buff" << buff[500] << endl;
         //cout << "next " << intermediate_sum[59133] << endl;
-        fill(buff.begin(), buff.end(), complex<float>(0,0)); 
+        //fill(buff.begin(), buff.end(), complex<float>(0,0)); 
         cout << "end inner"<< endl;
           
         }
@@ -615,10 +629,10 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       cout << "exited inner" << endl;
       if (phase_dither) {
         // Undo phase modulation and divide by num_presums in one go
-        transform(intermediate_sum.begin(), intermediate_sum.end(), intermediate_sum.begin(), std::bind(std::multiplies<complex<float>>(), std::placeholders::_1, polar((float) 1.0/num_presums, inversion_phase)));
+        transform(intermediate_sum.begin(), intermediate_sum.end()+1, intermediate_sum.begin(), std::bind(std::multiplies<complex<float>>(), std::placeholders::_1, polar((float) 1.0/num_presums, inversion_phase)));
       } else if (num_presums != 1) {
         // Only divide by num_presums
-        transform(intermediate_sum.begin(), intermediate_sum.end(), intermediate_sum.begin(), std::bind(std::multiplies<complex<float>>(), std::placeholders::_1, 1.0/num_presums));
+        transform(intermediate_sum.begin(), intermediate_sum.end()+1, intermediate_sum.begin(), std::bind(std::multiplies<complex<float>>(), std::placeholders::_1, 1.0/num_presums));
       }
       // Add to sample_sum
       //cout << "bye "<< endl;

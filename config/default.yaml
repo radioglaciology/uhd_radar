@@ -2,7 +2,7 @@
 
 # ----------------------- Chirp generation ------------------------ #
 GENERATE:
-    sample_rate: &s_rate 35e6        # Of the generated chirp, tx and rx sample rates [sps]
+    sample_rate: &s_rate 14e6        # Of the generated chirp, tx and rx sample rates [sps]
     chirp_type: 'linear'             # Can be 'linear'
     chirp_bandwidth: 16e6            # [Hz]
     lo_offset_sw: 0e6               #  [Hz] lo offset to be applied digitally in chirp generation 
@@ -14,10 +14,10 @@ GENERATE:
 
 # ----------------- TX/RX for USRP_B205mini-i --------------------- #
 DEVICE:
-    device_args: "num_recv_frames=400,num_send_frames=400,recv_frame_size=12000,send_frame_size=12000"   # device address
+    device_args: "num_recv_frames=700,num_send_frames=700,recv_frame_size=11000,send_frame_size=11000"   # device address
     subdev: "A:A"
     clk_ref: "internal"
-    clk_rate: 35e6       # Clock Rate [Hz]
+    clk_rate: 14e6       # Clock Rate [Hz]
     tx_channels: "0"
     rx_channels: "0"
     cpu_format: "fc32" # CPU-side format    - see https://files.ettus.com/manual/structuhd_1_1stream__args__t.html#a602a64b4937a85dba84e7f724387e252
@@ -52,10 +52,10 @@ RF1:                     # parameters for second RF channel
 CHIRP:
     time_offset: 1       # Time before first receive [s]
     tx_duration: *pulse_len # Transmission duration [s]
-    rx_duration: 12553e-7  # Receive duration [s]
+    rx_duration: 1  # Receive duration [s]
     tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
-    pulse_rep_int: 3e-3 # Chirp period [s]
+    pulse_rep_int: 3 # Chirp period [s]
     tx_lead: 0e-6        # Time between start of TX and RX[s]
     num_pulses: &num_pulses 10        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
     num_presums: 1
