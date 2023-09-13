@@ -32,6 +32,7 @@ bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0,
     string tx_ant = rf0["tx_ant"].as<string>();
     string rx_ant = rf0["rx_ant"].as<string>();
     bool transmit = rf0["transmit"].as<bool>(true);
+    string tuning_args = rf0["tuning_args"].as<string>();
 
     if (!(rx_channels.size() == tx_channels.size())) {
         throw std::runtime_error("Different TX and RX channel list lengths are not currently supported.");
@@ -50,13 +51,26 @@ bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0,
     usrp->set_command_time(usrp->get_time_now() + time_spec_t(0.1));
 
     // Set the center frequency and LO offset.
+    
     tune_request_t tune_request_tx(fc, lo_offset);
     tune_request_t tune_request_rx(fc, lo_offset);
+    tune_request_tx.args = device_addr_t(tuning_args);
+    tune_request_rx.args = device_addr_t(tuning_args);
+    /*tune_request_tx.dsp_freq_policy = tune_request_t::policy_t::POLICY_MANUAL; 
+    tune_request_rx.dsp_freq_policy = tune_request_t::policy_t::POLICY_MANUAL;
+    tune_request_tx.rf_freq_policy = tune_request_t::policy_t::POLICY_MANUAL;
+    tune_request_rx.rf_freq_policy = tune_request_t::policy_t::POLICY_MANUAL;
+    tune_request_tx.target_freq = fc;
+    tune_request_rx.target_freq = fc;
+    tune_request_tx.rf_freq = 452.5e6;
+    tune_request_rx.rf_freq = 452.5e6;
+    tune_request_tx.dsp_freq = -12.5e6;
+    tune_request_rx.dsp_freq = 12.5e6;*/
     tune_result_t tune_result_rx = usrp->set_rx_freq(tune_request_rx, rx_channel);
-    cout << tune_result_rx.to_pp_string() << endl;
+    cout << "RX:\n" << tune_result_rx.to_pp_string() << endl;
     if (transmit) {
         tune_result_t tune_result_tx = usrp->set_tx_freq(tune_request_tx, tx_channel);
-        cout << tune_result_tx.to_pp_string() << endl;
+        cout << "TX:\n" << tune_result_tx.to_pp_string() << endl;
     }
 
     // sleep 100ms (~10ms after retune occurs) to allow LO to lock
