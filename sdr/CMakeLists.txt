@@ -13,12 +13,14 @@ set(CMAKE_LIBRARY_PATH "$ENV{CONDA_PREFIX}/lib")
 set(CMAKE_INCLUDE_PATH "$ENV{CONDA_PREFIX}/include")
 
 ### Configure Compiler ########################################################
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" AND ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
     set(CMAKE_EXE_LINKER_FLAGS "-lthr ${CMAKE_EXE_LINKER_FLAGS}")
     set(CMAKE_CXX_FLAGS "-stdlib=libc++ ${CMAKE_CXX_FLAGS}")
 endif()
+
+set(CMAKE_CXX_FLAGS "-Wno-psabi ${CMAKE_CXX_FLAGS}")
 
 ### Set up build environment ##################################################
 # Choose a static or shared-library build (shared is default, and static will
@@ -40,6 +42,7 @@ set(UHD_BOOST_REQUIRED_COMPONENTS
     system
     thread
     filesystem
+    chrono
 )
 set(BOOST_MIN_VERSION 1.58)
 include(UHDBoost)
@@ -52,8 +55,11 @@ include_directories(
 )
 link_directories(${Boost_LIBRARY_DIRS})
 
-### Make the executable #######################################################
-add_executable(radar main.cpp rf_settings.cpp rf_settings.hpp utils.cpp utils.hpp)
+### Make the executables #######################################################
+# Radar executable
+add_executable(radar main.cpp rf_settings.cpp rf_settings.hpp utils.cpp utils.hpp pseudorandom_phase.cpp pseudorandom_phase.hpp)
+# Psuedorandom phase noise generation for post-processing
+add_executable(pseudorandom_phase_codes_to_file pseudorandom_phase_to_file.cpp pseudorandom_phase.cpp pseudorandom_phase.hpp)
 
 set(CMAKE_BUILD_TYPE "Release")
 
