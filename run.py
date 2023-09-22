@@ -2,6 +2,7 @@ import time
 import argparse
 import os
 import sys
+import shutil
 import subprocess
 import signal
 import threading
@@ -56,7 +57,7 @@ class RadarProcessRunner():
 
             # If provided, pass output to external function for processing
             if self.log_processing_function is not None:
-                log_processing_function(line)
+                self.log_processing_function(line)
 
             # If specified, also print to stdout
             if also_print:
@@ -90,10 +91,10 @@ class RadarProcessRunner():
         yaml = YAML()
         with open(self.yaml_filename) as stream:
             self.config = yaml.load(stream)
-        
+
         # Verify file save options
-        if self.config['RUN_MANAGER']['final_save_loc'] is None and self.config['RUN_MANAGER']['save_partial_files'] is False:
-            print("You must choose to save at least some of your data. In yaml: file_save_loc cannot be empty and save_partial files cannot be false at the same time.")
+        if (self.config['RUN_MANAGER']['final_save_loc'] is None) and (self.config['RUN_MANAGER']['save_partial_files'] is False) and (self.config['FILES']['max_chirps_per_file'] != -1):
+            print("You must choose to save at least some of your data. In yaml: file_save_loc cannot be empty and save_partial files cannot be false at the same time, unless .")
             exit(1)
 
         # Chirp generation
@@ -108,7 +109,7 @@ class RadarProcessRunner():
             retval = os.system(cmd)
             if retval != 0:
                 print(f"Running '{cmd}' produced non-zero return value {retval}. Quitting...")
-                error_and_quit()
+                exit(1)
 
         os.chdir("sdr/build")
         run_and_fail_on_nonzero("cmake ..")
@@ -163,14 +164,17 @@ class RadarProcessRunner():
         self.is_running = False
 
         self.uhd_output_reader_thread.join()
-        if self.config['RUN_MANAGER']['final_save_loc'] is not None:
+
+        # If necessary, concatenate data files into a single file
+        alternative_rx_samps_loc = None
+        if (self.config['RUN_MANAGER']['final_save_loc'] is not None) and (self.config['FILES']['max_chirps_per_file'] != -1):
             print("Calling save_from_queue()")
             self.save_from_queue()
-            self.output_file.close()
+            alternative_rx_samps_loc = self.output_file_path
 
         # Save output
         print("Copying data files...")
-        file_prefix = save_data(self.yaml_filename, alternative_rx_samps_loc=self.output_file_path, num_files=self.file_queue_size, extra_files={"uhd_stdout.log": "uhd_stdout.log"})
+        file_prefix = save_data(self.yaml_filename, alternative_rx_samps_loc=alternative_rx_samps_loc, num_files=self.file_queue_size, extra_files={"uhd_stdout.log": "uhd_stdout.log"})
         print("Finished copying data.")
 
         self.output_file = None
@@ -187,7 +191,9 @@ class RadarProcessRunner():
 
         while(not self.file_queue.empty()):
             with open(self.file_queue.get(), 'rb') as f:
-                self.output_file.write(f.read())
+                shutil.copyfileobj(f, self.output_file)
+
+        self.output_file.close()
 
 
 if __name__ == "__main__":

@@ -25,11 +25,14 @@ bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0,
     double rx_rate = rf0["rx_rate"].as<double>();
     double tx_rate = rf0["tx_rate"].as<double>();
     double fc = rf0["freq"].as<double>();
+    double lo_offset = rf0["lo_offset"].as<double>(0.0);
     double rx_gain = rf0["rx_gain"].as<double>();
     double tx_gain = rf0["tx_gain"].as<double>();
     double bw = rf0["bw"].as<double>();
     string tx_ant = rf0["tx_ant"].as<string>();
     string rx_ant = rf0["rx_ant"].as<string>();
+    bool transmit = rf0["transmit"].as<bool>(true);
+    string tuning_args = rf0["tuning_args"].as<string>();
 
     if (!(rx_channels.size() == tx_channels.size())) {
         throw std::runtime_error("Different TX and RX channel list lengths are not currently supported.");
@@ -39,15 +42,36 @@ bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0,
 
     // set the sample rates
     usrp->set_rx_rate(rx_rate, rx_channel);
-    usrp->set_tx_rate(tx_rate, tx_channel);
+    if (transmit) {
+        usrp->set_tx_rate(tx_rate, tx_channel);
+    }
 
-    // set center frequency at same time for both daughterboards
+    // Set command time to current time + 0.1 seconds
     usrp->clear_command_time();
     usrp->set_command_time(usrp->get_time_now() + time_spec_t(0.1));
 
-    tune_request_t tune_request(fc);
-    usrp->set_rx_freq(tune_request, rx_channel);
-    usrp->set_tx_freq(tune_request, tx_channel);
+    // Set the center frequency and LO offset.
+    
+    tune_request_t tune_request_tx(fc, lo_offset);
+    tune_request_t tune_request_rx(fc, lo_offset);
+    tune_request_tx.args = device_addr_t(tuning_args);
+    tune_request_rx.args = device_addr_t(tuning_args);
+    /*tune_request_tx.dsp_freq_policy = tune_request_t::policy_t::POLICY_MANUAL; 
+    tune_request_rx.dsp_freq_policy = tune_request_t::policy_t::POLICY_MANUAL;
+    tune_request_tx.rf_freq_policy = tune_request_t::policy_t::POLICY_MANUAL;
+    tune_request_rx.rf_freq_policy = tune_request_t::policy_t::POLICY_MANUAL;
+    tune_request_tx.target_freq = fc;
+    tune_request_rx.target_freq = fc;
+    tune_request_tx.rf_freq = 452.5e6;
+    tune_request_rx.rf_freq = 452.5e6;
+    tune_request_tx.dsp_freq = -12.5e6;
+    tune_request_rx.dsp_freq = 12.5e6;*/
+    tune_result_t tune_result_rx = usrp->set_rx_freq(tune_request_rx, rx_channel);
+    cout << "RX:\n" << tune_result_rx.to_pp_string() << endl;
+    if (transmit) {
+        tune_result_t tune_result_tx = usrp->set_tx_freq(tune_request_tx, tx_channel);
+        cout << "TX:\n" << tune_result_tx.to_pp_string() << endl;
+    }
 
     // sleep 100ms (~10ms after retune occurs) to allow LO to lock
     this_thread::sleep_for(chrono::milliseconds(110)); 
@@ -55,7 +79,9 @@ bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0,
 
     // set the rf gain
     usrp->set_rx_gain(rx_gain, rx_channel);
-    usrp->set_tx_gain(tx_gain, tx_channel);
+    if (transmit) {
+        usrp->set_tx_gain(tx_gain, tx_channel);
+    }
 
     // set the IF filter bandwidth
     if (bw != 0)
@@ -65,7 +91,9 @@ bool set_rf_params_single(usrp::multi_usrp::sptr usrp, YAML::Node rf0,
 
     // set the antenna
     usrp->set_rx_antenna(rx_ant, rx_channel);
-    usrp->set_tx_antenna(tx_ant, tx_channel);
+    if (transmit) {
+        usrp->set_tx_antenna(tx_ant, tx_channel);
+    }
 
     // sanity check actual values against requested values
     bool mismatch = rf_error_check(usrp, rf0, tx_channel, rx_channel);
@@ -188,30 +216,46 @@ bool rf_error_check(usrp::multi_usrp::sptr usrp, YAML::Node rf, size_t tx_channe
     double bw = rf["bw"].as<double>();
     string tx_ant = rf["tx_ant"].as<string>();
     string rx_ant = rf["rx_ant"].as<string>();
+    bool transmit = rf["transmit"].as<bool>(true);
+
 
     if (usrp->get_rx_rate(rx_channel) != rx_rate) {
-        cout << boost::format("[WARNING]: Requested RX rate (CH%d): %f MHz. Actual RX rate: %f MHz.")
-            % rx_channel % (rx_rate / (1e6)) % (usrp->get_rx_rate(rx_channel) / (1e6)) << endl;
+        cout << boost::format("[WARNING]: Requested RX rate (CH%d): %f Hz. Actual RX rate: %f Hz.")
+            % rx_channel % (rx_rate) % (usrp->get_rx_rate(rx_channel)) << endl;
         mismatch = true;
     }
 
-    if (usrp->get_tx_rate(tx_channel) != tx_rate) {
-        cout << boost::format("[WARNING]: Requested TX rate (CH%d): %f MHz. Actual TX rate: %f MHz.")
-            % tx_channel % (tx_rate / (1e6)) % (usrp->get_tx_rate(tx_channel) / (1e6)) << endl;
+    if (transmit && (usrp->get_tx_rate(tx_channel) != tx_rate)) {
+        cout << boost::format("[WARNING]: Requested TX rate (CH%d): %f Hz. Actual TX rate: %f Hz.")
+            % tx_channel % (tx_rate) % (usrp->get_tx_rate(tx_channel)) << endl;
         mismatch = true;
     }
 
     if (usrp->get_rx_freq(rx_channel) != fc) {
-        cout << boost::format("[WARNING]: Requested RX center freq (CH%d): %f MHz. Actual RX center freq: %f MHz.")
-            % rx_channel % (fc / (1e6)) % (usrp->get_rx_freq(rx_channel) / (1e6)) << endl;
+        cout << boost::format("[WARNING]: Requested RX center freq (CH%d): %f Hz. Actual RX center freq: %f Hz.")
+            % rx_channel % (fc) % (usrp->get_rx_freq(rx_channel)) << endl;
         mismatch = true;
     }
 
-    if (usrp->get_tx_freq(tx_channel) != fc) {
-        cout << boost::format("[WARNING]: Requested TX center freq (CH%d): %f MHz. Actual TX center freq: %f MHz.")
-            % tx_channel % (fc / (1e6)) % (usrp->get_tx_freq(tx_channel) / (1e6)) << endl;
+    if (transmit && (usrp->get_tx_freq(tx_channel) != fc)) {
+        cout << boost::format("[WARNING]: Requested TX center freq (CH%d): %f Hz. Actual TX center freq: %f Hz.")
+            % tx_channel % (fc) % (usrp->get_tx_freq(tx_channel)) << endl;
         mismatch = true;
     }
+
+    if (transmit) {
+        double tx_rx_center_freq_diff = usrp->get_tx_freq(tx_channel) - usrp->get_rx_freq(rx_channel);
+        if (tx_rx_center_freq_diff != 0){
+            cout << boost::format("[WARNING] [**** FOR REAL THIS IS IMPORTANT ****] TX and RX center frequencies are not the same. Difference is %f Hz.")
+            % tx_rx_center_freq_diff << endl;
+        }
+        double tx_rx_rate_diff = usrp->get_tx_rate(tx_channel) - usrp->get_rx_rate(rx_channel);
+        if (tx_rx_rate_diff != 0){
+            cout << boost::format("[WARNING] [**** FOR REAL THIS IS IMPORTANT ****] TX and RX sample rates are not the same. Difference is %f Hz.")
+            % tx_rx_rate_diff << endl;
+        }
+    }
+    
 
     if (usrp->get_rx_gain(rx_channel) != rx_gain) {
         cout << boost::format("[WARNING]: Requested RX gain (CH%d): %f dB. Actual RX gain: %f dB.")
@@ -219,7 +263,7 @@ bool rf_error_check(usrp::multi_usrp::sptr usrp, YAML::Node rf, size_t tx_channe
         mismatch = true;
     }
 
-    if (usrp->get_tx_gain(tx_channel) != tx_gain) {
+    if (transmit && (usrp->get_tx_gain(tx_channel) != tx_gain)) {
         cout << boost::format("[WARNING]: Requested TX gain (CH%d): %f dB. Actual TX gain: %f dB.")
             % tx_channel % tx_gain % usrp->get_tx_gain(tx_channel) << endl;
         mismatch = true;
@@ -231,7 +275,7 @@ bool rf_error_check(usrp::multi_usrp::sptr usrp, YAML::Node rf, size_t tx_channe
         mismatch = true;
     }
 
-    if (usrp->get_tx_antenna(tx_channel) != tx_ant) {
+    if (transmit && (usrp->get_tx_antenna(tx_channel) != tx_ant)) {
         cout << boost::format("[WARNING]: Requested TX ant (CH%d): %s. Actual TX ant: %s.")
             % tx_channel % tx_ant % usrp->get_tx_antenna(tx_channel) << endl;
         mismatch = true;
