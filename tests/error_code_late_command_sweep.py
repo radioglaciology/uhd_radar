@@ -129,12 +129,14 @@ if __name__ == "__main__":
     n_error_list = np.array([results[v]['n_errors'] for v in values])
 
     import pickle
-    with open('test.pickle', 'wb') as f:
+    figname = f"error_code_late_command_{results[-1]['file_prefix']}.png"
+    picklename = f"error_code_late_command_{results[-1]['file_prefix']}.pickle"
+    with open(picklename, 'wb') as f:
         pickle.dump({'n_error_list': n_error_list, 'values': values, 'config': config}, f)
 
     fig, ax = plt.subplots(figsize=(10,6), facecolor='white')
     ax.scatter(duty_cycles, n_error_list / config['CHIRP']['num_pulses'] * 100)
-    ax.set_xlabel('Effective duty cycle [%]')
+    ax.set_xlabel('Effective duty cycle [%]') # AB: WHY NOT JUST CALL THIS DUTY CYCLE?
     secax = ax.secondary_xaxis('top', functions=(duty_to_pri, pri_to_duty))
     secax.set_xlabel('pulse_rep_int [microseconds]')
     secax.set_xticks(duty_to_pri(ax.get_xticks()))
@@ -142,8 +144,8 @@ if __name__ == "__main__":
     ax.set_ylim(0, 100)
     ax.set_xlim(duty_cycles[0], duty_cycles[-1])
 
-    ax.set_ylabel('Percent of ERROR_CODE_LATE_COMMAND [%]')
+    ax.set_ylabel('Percent of ERROR_CODE_LATE_COMMAND [%]') # AB: COULD CALL THIS THE ERROR RATE
     ax.set_title(f"tx_duration: {config['CHIRP']['tx_duration']}, rx_duration: {config['CHIRP']['rx_duration']}, num_pulses: {config['CHIRP']['num_pulses']}")
     ax.grid()
     fig.tight_layout()
-    fig.savefig('error_code_late_command.png')
+    fig.savefig(figname)
