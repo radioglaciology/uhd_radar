@@ -10,7 +10,7 @@ GENERATE:
     chirp_length: &chirp_len 10e-6    # [s] chirp length without zero padding
     pulse_length: &pulse_len 10e-6    # [s] total pulse length (chirp + symmetric zero padding)
     out_file: &ch_sent "data/chirp.bin"   # The name of the output binary file
-    show_plot: True                 # Display a time-domain plot of the generated chirp
+    show_plot: False                 # Display a time-domain plot of the generated chirp
 
 # ----------------- TX/RX for X310 --------------------- #
 DEVICE:
@@ -55,9 +55,9 @@ CHIRP:
     rx_duration: 60e-6   # Receive duration [s]
     tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
-    pulse_rep_int: 400e-6 # Chirp period [s]
+    pulse_rep_int: 500e-6 # Chirp period [s]
     tx_lead: 0e-6       # Time between start of TX and RX[s]
-    num_pulses: &num_pulses 1000       # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
+    num_pulses: &num_pulses 10000       # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
     num_presums: 100    
     phase_dithering: true      
 FILES:

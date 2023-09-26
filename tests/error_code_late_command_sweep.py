@@ -129,8 +129,8 @@ if __name__ == "__main__":
     n_error_list = np.array([results[v]['n_errors'] for v in values])
 
     import pickle
-    figname = f"error_code_late_command_{results[-1]['file_prefix']}.png"
-    picklename = f"error_code_late_command_{results[-1]['file_prefix']}.pickle"
+    figname = f"error_code_late_command_{list(results.values())[-1]['file_prefix']}.png"
+    picklename = f"error_code_late_command_{list(results.values())[-1]['file_prefix']}.pickle"
     with open(picklename, 'wb') as f:
         pickle.dump({'n_error_list': n_error_list, 'values': values, 'config': config}, f)
 
