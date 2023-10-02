@@ -102,6 +102,7 @@ size_t num_rx_samps; // Total samples to receive per chirp
 long int pulses_scheduled = 0;
 long int pulses_received = 0;
 long int error_count = 0;
+long int last_pulse_num_written = -1; // Index number (pulses_received - error_count) of last sample written to outfile
 
 // Cout mutex
 std::mutex cout_mutex;
@@ -524,12 +525,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   rx_metadata_t rx_md; // Captures metadata from rx_stream->recv() -- specifically primarily timeouts and other errors
 
   float inversion_phase; // Store phase to use for phase inversion of this chirp
-  int last_pulse_num_written = -1; // Index number (pulses_received - error_count) of last sample written to outfile
 
   // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
   cout << "[START] Beginning main loop" << endl;
 
-  while ((num_pulses < 0) || (pulses_received < num_pulses)) {
+  while ((num_pulses < 0) || (last_pulse_num_written < num_pulses)) {
 
     n_samps_in_rx_buff = rx_stream->recv(buffs, num_rx_samps, rx_md, 60.0, false); // TODO: Think about timeout
 
@@ -640,6 +640,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   gps_stream.close();
 
   cout << "[RX] Error count: " << error_count << endl;
+  cout << "[RX] Total pulses written: " << last_pulse_num_written << endl;
   
   cout << "[RX] Done. Calling join_all() on transmit thread group." << endl;
 
@@ -706,7 +707,7 @@ void transmit_worker(tx_streamer::sptr& tx_stream, rx_streamer::sptr& rx_stream)
   long int last_error_count = 0;
   double error_delay = 0;
 
-  while ((num_pulses < 0) || (pulses_scheduled < num_pulses))
+  while ((num_pulses < 0) || ((pulses_scheduled - error_count) < num_pulses))
   {
     // Setup next chirp for modulation
     if (phase_dither) {

@@ -37,6 +37,7 @@ def test_with_pulse_rep_int(yaml_filename, pulse_rep_int, timeout_s=60*2, tmp_ya
 
     # Modify
     config['CHIRP']['pulse_rep_int'] = pulse_rep_int
+    print(f"Starting run with PRI of {pulse_rep_int} seconds.")
 
     with open(tmp_yaml_filename, 'w') as f:
         yaml.dump(config, f)
@@ -117,11 +118,12 @@ if __name__ == "__main__":
 
     duty_cycles = np.arange(pri_to_duty(max(config['CHIRP']['tx_duration'], config['CHIRP']['rx_duration'])), 1.0, -2.5) # in percent
     values = duty_to_pri(duty_cycles)
+    print(f"pri values: {values}")
     results = {}
 
     # Run sweep
     for v in values:
-        results[v] = test_with_pulse_rep_int(yaml_filename, pulse_rep_int = float(v))
+        results[v] = test_with_pulse_rep_int(yaml_filename, pulse_rep_int = float(v), timeout_s=600)
 
     for k, v in results.items():
         print(f"pulse_rep_int: {k} \tn_errors: {v['n_errors']} \tprefix: {v['file_prefix']}")
@@ -129,8 +131,10 @@ if __name__ == "__main__":
     n_error_list = np.array([results[v]['n_errors'] for v in values])
 
     import pickle
-    figname = f"error_code_late_command_{list(results.values())[-1]['file_prefix']}.png"
-    picklename = f"error_code_late_command_{list(results.values())[-1]['file_prefix']}.pickle"
+    figname = f"./tests/{list(results.values())[-1]['file_prefix']}_error_code_late_command.png"
+    picklename = f"./tests/{list(results.values())[-1]['file_prefix']}_error_code_late_command.pickle"
+    print(figname)
+    print(picklename)
     with open(picklename, 'wb') as f:
         pickle.dump({'n_error_list': n_error_list, 'values': values, 'config': config}, f)
 
