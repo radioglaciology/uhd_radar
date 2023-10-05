@@ -8,6 +8,7 @@ import threading
 from ruamel.yaml import YAML
 import matplotlib.pyplot as plt
 import numpy as np
+import re
 
 sys.path.append("preprocessing")
 from generate_chirp import generate_from_yaml_filename
@@ -48,11 +49,13 @@ def test_with_pulse_rep_int(yaml_filename, pulse_rep_int, timeout_s=60*2, tmp_ya
     uhd_output_reader_thread.start()
 
     print(f"Waiting up to {timeout_s} seconds for the process to quit")
+    killed = False
     try:
         uhd_process.wait(timeout=timeout_s)
     except subprocess.TimeoutExpired as e:
         print(f"UHD process did not terminate within time limit. Killing...")
         uhd_process.kill()
+        killed = True
 
     # Save output
     print("Copying data files...")
@@ -62,9 +65,17 @@ def test_with_pulse_rep_int(yaml_filename, pulse_rep_int, timeout_s=60*2, tmp_ya
     with open("uhd_stdout.log", "r") as f:
         n_errors = sum(line.count("ERROR_CODE_LATE_COMMAND") for line in f)
 
-    print(f"{n_errors} ERROR_CODE_LATE_COMMAND errors detected")
+    if killed:
+        n_pulses_received = max(config['CHIRP']['num_pulses'], n_errors)
+    else:
+        with open("uhd_stdout.log", "r") as f:
+            rex = '.Total pulses attempted: (\d+)'
+            n_pulses_received = re.findall(rex, f.read(), re.DOTALL)
+            n_pulses_received = int(n_pulses_received[0])
 
-    return {'file_prefix': file_prefix, 'pulse_rep_int': pulse_rep_int, 'n_errors': n_errors}
+    print(f"{n_errors}/{n_pulses_received} ERROR_CODE_LATE_COMMAND errors detected / pulses attempted")
+
+    return {'file_prefix': file_prefix, 'pulse_rep_int': pulse_rep_int, 'n_errors': n_errors, 'n_attempts': n_pulses_received}
     #return {'file_prefix': "", 'pulse_rep_int': pulse_rep_int, 'n_errors': n_errors}
 
 #expected_cwd = "/home/thomas/Documents/StanfordGrad/RadioGlaciology/sdr"
@@ -116,19 +127,21 @@ if __name__ == "__main__":
     def duty_to_pri(duty):
         return 100 * active_time / (duty)
 
-    duty_cycles = np.arange(pri_to_duty(max(config['CHIRP']['tx_duration'], config['CHIRP']['rx_duration'])), 1.0, -2.5) # in percent
+    duty_cycles = np.arange(pri_to_duty(max(config['CHIRP']['tx_duration'], config['CHIRP']['rx_duration'])), 1.0, -5) # in percent
     values = duty_to_pri(duty_cycles)
     print(f"pri values: {values}")
+    expected_time = (values[-1] * config['CHIRP']['num_pulses']) * 2 # calculate the expected time for the slowest run and add 20% for good measure
     results = {}
 
     # Run sweep
     for v in values:
-        results[v] = test_with_pulse_rep_int(yaml_filename, pulse_rep_int = float(v), timeout_s=600)
+        results[v] = test_with_pulse_rep_int(yaml_filename, pulse_rep_int = float(v), timeout_s=expected_time)
 
     for k, v in results.items():
-        print(f"pulse_rep_int: {k} \tn_errors: {v['n_errors']} \tprefix: {v['file_prefix']}")
+        print(f"pulse_rep_int: {k} \tn_errors: {v['n_errors']}\tn_pulses_attempted: {v['n_attempts']}\tprefix: {v['file_prefix']}")
 
     n_error_list = np.array([results[v]['n_errors'] for v in values])
+    n_pulse_attempts = np.array([results[v]['n_attempts'] for v in values])
 
     import pickle
     figname = f"./tests/{list(results.values())[-1]['file_prefix']}_error_code_late_command.png"
@@ -136,10 +149,11 @@ if __name__ == "__main__":
     print(figname)
     print(picklename)
     with open(picklename, 'wb') as f:
-        pickle.dump({'n_error_list': n_error_list, 'values': values, 'config': config}, f)
+        pickle.dump({'n_error_list': n_error_list, 'n_pulse_attempts': n_pulse_attempts, 'values': values, 'config': config}, f)
 
     fig, ax = plt.subplots(figsize=(10,6), facecolor='white')
-    ax.scatter(duty_cycles, n_error_list / config['CHIRP']['num_pulses'] * 100)
+    #ax.scatter(duty_cycles, n_error_list / config['CHIRP']['num_pulses'] * 100)
+    ax.scatter(duty_cycles, n_error_list / n_pulse_attempts * 100)
     ax.set_xlabel('Effective duty cycle [%]') # AB: WHY NOT JUST CALL THIS DUTY CYCLE?
     secax = ax.secondary_xaxis('top', functions=(duty_to_pri, pri_to_duty))
     secax.set_xlabel('pulse_rep_int [microseconds]')

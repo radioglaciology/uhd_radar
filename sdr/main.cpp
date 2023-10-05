@@ -610,7 +610,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       boost::asio::async_write(gps_stream, boost::asio::buffer(gps_data + "\n"), gps_asio_handler);
     }*/
 
-    if ( (max_chirps_per_file > 0) && (int(pulses_received / max_chirps_per_file) > save_file_index)) {
+    if ( (max_chirps_per_file > 0) && (int(last_pulse_num_written / max_chirps_per_file) > save_file_index)) {
       outfile.close();
       // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
       cout_mutex.lock();
@@ -641,6 +641,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   cout << "[RX] Error count: " << error_count << endl;
   cout << "[RX] Total pulses written: " << last_pulse_num_written << endl;
+  cout << "[RX] Total pulses attempted: " << pulses_received << endl;
   
   cout << "[RX] Done. Calling join_all() on transmit thread group." << endl;
 
