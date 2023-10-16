@@ -32,7 +32,7 @@ uhd_process = None
 uhd_output_reader_thread = None
 
 # Setup button and button LED
-button = gpiozero.Button(4, pull_up=False)
+button = gpiozero.Button(4, pull_up=False, hold_time=5)
 led = gpiozero.PWMLED(18)
 
 def button_press():
@@ -44,6 +44,18 @@ def button_press():
         start_recording()
     elif current_state == "recording":
         stop_recording()
+
+def button_hold():
+    global current_state
+
+    print("Button hold")
+
+    if current_state == "recording":
+        stop_recording()
+
+    print("Button held down -- asking system to shutdown")
+    os.system("systemctl poweroff")
+    exit(0)
 
 def update_led_state():
     global current_state, displayed_state
@@ -168,7 +180,8 @@ os.chdir("../..")
 # If successful, move on to ready state
 time.sleep(1) # TODO: Could remove - helps make it more obvious what's happening
 current_state = "ready"
-button.when_pressed = button_press
+button.when_released = button_press # Toggle recording state on quick button press+release
+button.when_held = button_hold # When held, ask system to shutdown
 update_led_state()
 
 # The rest is handled asynchronously
