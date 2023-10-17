@@ -54,7 +54,7 @@ def button_hold():
         stop_recording()
 
     print("Button held down -- asking system to shutdown")
-    os.system("systemctl poweroff")
+    os.system("sudo shutdown -h now")
     exit(0)
 
 def update_led_state():
