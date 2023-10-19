@@ -18,3 +18,5 @@ dependencies:
   - pip:
     - gpiozero
     - RPi.GPIO
+    - sparkfun-qwiic
+    - pi-ina219

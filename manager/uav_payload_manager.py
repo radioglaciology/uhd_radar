@@ -141,6 +141,15 @@ def error_and_quit():
     time.sleep(5)
     exit(1)
 
+# Handle SIGINT
+def signal_handler(sig, frame):
+    print('uav_payload_manager received SIGINT')
+    if current_state == "recording":
+        print("Stopping recording in response to SIGINT...")
+        stop_recording()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
 
 # Get ready to run
 
