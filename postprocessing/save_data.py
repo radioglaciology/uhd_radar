@@ -1,4 +1,5 @@
 import sys
+import os
 import shutil
 import argparse
 import numpy as np
@@ -14,7 +15,8 @@ def save_data(yaml_filename, extra_files={}, alternative_rx_samps_loc=None, num_
     with open(yaml_filename) as stream:
         config = yaml.load(stream)
 
-    file_prefix = datetime.now().strftime("data/%Y%m%d_%H%M%S")
+    file_location_base = os.path.dirname(config['FILES']['save_loc'])
+    file_prefix = os.path.join(file_location_base, datetime.now().strftime("%Y%m%d_%H%M%S"))
 
     print(f"Copying data to {file_prefix}...")
 

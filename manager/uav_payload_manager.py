@@ -115,7 +115,7 @@ def stop_recording():
     current_state = "saving"
     uhd_process.send_signal(signal.SIGINT)
     update_led_state()
-    timeout = 10
+    timeout = 12
     print(f"Waiting up to {timeout} seconds for the process to quit")
     try:
         uhd_process.wait(timeout=timeout)

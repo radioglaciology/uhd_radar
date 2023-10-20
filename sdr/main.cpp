@@ -116,7 +116,10 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   string yaml_filename;
   if (argc >= 2) {
-    yaml_filename = "../../" + string(argv[1]);
+    yaml_filename = string(argv[1]);
+    if (yaml_filename[0] != '/') {
+      yaml_filename = "../../" + yaml_filename;
+    }
   } else {
     yaml_filename = "../../config/default.yaml";
   }
@@ -177,6 +180,17 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   save_loc = files["save_loc"].as<string>();
   gps_save_loc = files["gps_loc"].as<string>();
   max_chirps_per_file = files["max_chirps_per_file"].as<int>();
+
+  // If paths are relative, assume they are relative to the base of the repo
+  if (chirp_loc[0] != '/') {
+    chirp_loc = "../../" + chirp_loc;
+  }
+  if (save_loc[0] != '/') {
+    save_loc = "../../" + save_loc;
+  }
+  if (gps_save_loc[0] != '/') {
+    gps_save_loc = "../../" + gps_save_loc;
+  }
 
   // Calculated parameters
   tr_off_delay = tx_duration + tr_off_trail; // Time before turning off GPIO
@@ -460,13 +474,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   /*** FILE WRITE SETUP ***/
   boost::asio::io_service ioservice;
 
-  if (save_loc[0] != '/') {
-    save_loc = "../../" + save_loc;
-  }
-  if (gps_save_loc[0] != '/') {
-    gps_save_loc = "../../" + gps_save_loc;
-  }
-
   int gps_file = open(gps_save_loc.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
   if (gps_file == -1) {
       throw std::runtime_error("Failed to open GPS file: " + gps_save_loc);
@@ -518,10 +525,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   vector<complex<float>> buff(num_rx_samps); // Buffer sized for one pulse at a time
   vector<void *> buffs;
-  for (size_t ch = 0; ch < rx_stream->get_num_channels(); ch++) {
-    buffs.push_back(&buff.front()); // TODO: I don't think this actually works for num_channels > 1
-  }
-  size_t n_samps_in_rx_buff;
+  size_t n_samps_from_recv;
+  size_t n_samps_received_in_chirp;
   rx_metadata_t rx_md; // Captures metadata from rx_stream->recv() -- specifically primarily timeouts and other errors
 
   float inversion_phase; // Store phase to use for phase inversion of this chirp
@@ -531,7 +536,27 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   while ((num_pulses < 0) || (last_pulse_num_written < num_pulses)) {
 
-    n_samps_in_rx_buff = rx_stream->recv(buffs, num_rx_samps, rx_md, 60.0, false); // TODO: Think about timeout
+    n_samps_received_in_chirp = 0; // Samples collected for the current chirp so far
+
+    while(n_samps_received_in_chirp < num_rx_samps) {
+      if (n_samps_received_in_chirp > 0) {
+        cout << n_samps_received_in_chirp << endl;
+      }
+      // Keep receiving data until we have our full chirp RX length OR we get an error
+      
+      // Set buffers to the right position
+      buffs.clear();
+      buffs.push_back(&buff[n_samps_received_in_chirp]);
+      
+      // Receive samples
+      n_samps_from_recv = rx_stream->recv(buffs, num_rx_samps, rx_md, 60.0, false); // TODO: Think about timeout
+      n_samps_received_in_chirp += n_samps_from_recv;
+
+      // Break if any error occurs
+      if (rx_md.error_code != rx_metadata_t::ERROR_CODE_NONE) {
+        break;
+      }
+    }
 
     if (phase_dither) {
       inversion_phase = -1.0 * get_next_phase(false); // Get next phase from the generator each time to keep in sequence with TX
@@ -545,14 +570,12 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
       
       pulses_received++;
       error_count++;
-    } else if (n_samps_in_rx_buff != num_rx_samps) {
+    } else if (n_samps_received_in_chirp != num_rx_samps) {
       // Unexpected number of samples received in buffer!
       // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
       cout_mutex.lock();
       cout << "[ERROR] (Chirp " << pulses_received << ") Unexpected number of samples in the RX buffer.";
-      cout << " Got: " << n_samps_in_rx_buff << " Expected: " << num_rx_samps << endl;
-      cout << "Note: rx_stream->recv can return less than the expected number of samples in some situations, ";
-      cout << "but it's not currently supported by this code." << endl;
+      cout << " Got: " << n_samps_received_in_chirp << " Expected: " << num_rx_samps << endl;
       cout_mutex.unlock();
       // If you encounter this error, one possible reason is that the buffer sizes set in your transport parameters are too small.
       // For libUSB-based transport, recv_frame_size should be at least the size of num_rx_samps.
@@ -661,7 +684,7 @@ void transmit_worker(tx_streamer::sptr& tx_stream, rx_streamer::sptr& rx_stream)
   set_thread_priority_safe(1.0, true);
 
   // open file to stream from
-  ifstream infile("../../" + chirp_loc, ifstream::binary);
+  ifstream infile(chirp_loc, ifstream::binary);
 
   if (!infile.is_open())
   {
