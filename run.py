@@ -141,6 +141,8 @@ class RadarProcessRunner():
             time.sleep(1)
             if (timeout is not None) and (time.time() - t > timeout):
                 self.stop()
+                return -1
+        return 0
 
     """
     Ends the radar program (if not already terminated) and saves data
