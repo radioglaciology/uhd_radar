@@ -18,7 +18,7 @@ def save_data(yaml_filename, extra_files={}, alternative_rx_samps_loc=None, num_
     file_location_base = os.path.dirname(config['FILES']['save_loc'])
     file_prefix = os.path.join(file_location_base, datetime.now().strftime("%Y%m%d_%H%M%S"))
 
-    print(f"Copying data to {file_prefix}...")
+    print(f"Moving data to {file_prefix}...")
 
     shutil.copy(yaml_filename, file_prefix + "_config.yaml")
     if config['FILES']['max_chirps_per_file'] == -1:
@@ -28,9 +28,9 @@ def save_data(yaml_filename, extra_files={}, alternative_rx_samps_loc=None, num_
             base_filename = config['FILES']['save_loc']
             for i in range(num_files):
                 f = base_filename + "." + str(i)
-                shutil.copy(f, file_prefix + "_p" + str(i) + "_rx_samps.bin")
+                shutil.move(f, file_prefix + "_p" + str(i) + "_rx_samps.bin")
         if alternative_rx_samps_loc is not None:
-            shutil.copy(alternative_rx_samps_loc, file_prefix + "_rx_samps.bin")
+            shutil.move(alternative_rx_samps_loc, file_prefix + "_rx_samps.bin")
 
     for source_file, dest_tag in extra_files.items():
         shutil.copy(source_file, file_prefix + "_" + dest_tag)

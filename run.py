@@ -46,6 +46,8 @@ class RadarProcessRunner():
         self.output_file = None
         self.output_file_path = None
 
+        self.was_force_killed = False
+
     """
     Manage the stdout of the radar program, including logging it to a file and optionally sending it for additional processing
     """
@@ -130,6 +132,7 @@ class RadarProcessRunner():
         self.uhd_output_reader_thread.daemon = True # thread dies with the program
         self.uhd_output_reader_thread.start()
         self.is_running = True
+        self.was_force_killed = False
 
     """
     Wait (up to `timeout` seconds, if not None) for the process to complete
@@ -151,8 +154,6 @@ class RadarProcessRunner():
         if not self.is_running:
             return 0
 
-        was_force_killed = False
-
         print("Attemping to stop UHD process")
         self.uhd_process.send_signal(signal.SIGINT)
         print(f"Waiting up to {timeout} seconds for the process to quit")
@@ -162,7 +163,7 @@ class RadarProcessRunner():
         except subprocess.TimeoutExpired as e:
             print(f"UHD process did not terminate within time limit. Killing...")
             self.uhd_process.kill()
-            was_force_killed = True
+            self.was_force_killed = True
         self.is_running = False
 
         self.uhd_output_reader_thread.join()

@@ -11,6 +11,7 @@ sys.path.append("preprocessing")
 from generate_chirp import generate_from_yaml_filename
 sys.path.append("postprocessing")
 from save_data import save_data
+sys.path.append(".")
 from run import RadarProcessRunner
 
 # Nominal flow:
@@ -29,8 +30,6 @@ current_state = "setup"     # Current actual state
 displayed_state = None       # Current state displayed on LED
 expected_cwd = "/home/ubuntu/uhd_radar"
 yaml_filename = None
-#uhd_process = None
-#uhd_output_reader_thread = None
 
 runner = None # RadarProcessRunner (or None when not active)
 
@@ -87,15 +86,10 @@ def update_led_state():
             print(e)
 
 # Output logging
-def log_output_from_usrp(out, file_out):
+def process_output_from_usrp(line):
     global current_state
-    for line in iter(out.readline, ''):
-        if (current_state != "saving") and (line.startswith("Received chirp") or line.startswith("[START]")):
-            current_state = "recording"
-        file_out.write(f"[{time.time():0.3f}] \t{line}")
-        print(f"UHD output: \t{line}", end="")
-    out.close()
-    file_out.close()
+    if (current_state != "saving") and (line.startswith("Received chirp") or line.startswith("[START]")):
+        current_state = "recording"
 
 def start_recording():
     #global current_state, uhd_process, uhd_output_reader_thread
@@ -106,41 +100,22 @@ def start_recording():
     update_led_state()
 
     # RadarProcessRunner
-    runner = RadarProcessRunner(yaml_filename)
+    runner = RadarProcessRunner(yaml_filename, log_processing_function=process_output_from_usrp)
     runner.setup()
     runner.run()
 
-    # uhd_process = subprocess.Popen(["./radar", yaml_filename], stdout=subprocess.PIPE, bufsize=1, close_fds=True, text=True, cwd="sdr/build")
-    # uhd_output_reader_thread = threading.Thread(target=log_output_from_usrp, args=(uhd_process.stdout, open('uhd_stdout.log', 'w')))
-    # uhd_output_reader_thread.daemon = True # thread dies with the program
-    # uhd_output_reader_thread.start()
 
 def stop_recording():
     global current_state, yaml_filename, runner
 
-    was_force_killed = False
+    timeout = 45
 
-    print("Attemping to stop UHD process")
+    print(f"Attempting to stop UHD process (will wait up to {timeout} s)")
     current_state = "saving"
-    runner.uhd_process.send_signal(signal.SIGINT)
+    runner.stop(timeout=timeout)
     update_led_state()
-    timeout = 60
-    print(f"Waiting up to {timeout} seconds for the process to quit")
-    if uhd_process.wait(timeout=timeout) < 0:
-        was_force_killed = True
-    # try:
-    #     uhd_process.wait(timeout=timeout)
-    # except subprocess.TimeoutExpired as e:
-    #     print(f"UHD process did not terminate within time limit. Killing...")
-    #     uhd_process.kill()
-    #     was_force_killed = True
-
-    # # Save output
-    # print("Copying data files...")
-    # save_data(yaml_filename, extra_files={"uhd_stdout.log": "uhd_stdout.log"})
-    # print("Finished copying data.")
     
-    if was_force_killed:
+    if runner.was_force_killed:
         print("Copying completed, but the process had to be killed.")
         error_and_quit()
     else:
