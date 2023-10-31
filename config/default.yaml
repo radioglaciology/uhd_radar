@@ -2,9 +2,9 @@
 
 # ----------------------- Chirp generation ------------------------ #
 GENERATE:
-    sample_rate: &s_rate 14e6        # Of the generated chirp, tx and rx sample rates [sps]
+    sample_rate: &s_rate 20e6        # Of the generated chirp, tx and rx sample rates [sps]
     chirp_type: 'linear'             # Can be 'linear'
-    chirp_bandwidth: 14e6            # [Hz]
+    chirp_bandwidth: 20e6            # [Hz]
     lo_offset_sw: 0e6               #  [Hz] lo offset to be applied digitally in chirp generation 
     window: 'rectangular'            # Window function applied to the chirp
     chirp_length: &chirp_len 20e-6    # [s] chirp length without zero padding
@@ -17,7 +17,7 @@ DEVICE:
     device_args: "num_recv_frames=700,num_send_frames=700,recv_frame_size=11000,send_frame_size=11000"   # device address
     subdev: "A:A"
     clk_ref: "internal"
-    clk_rate: 14e6       # Clock Rate [Hz]
+    clk_rate: 20e6       # Clock Rate [Hz]
     tx_channels: "0"
     rx_channels: "0"
     cpu_format: "fc32" # CPU-side format    - see https://files.ettus.com/manual/structuhd_1_1stream__args__t.html#a602a64b4937a85dba84e7f724387e252
@@ -30,11 +30,11 @@ GPIO:
 RF0:
     rx_rate: *s_rate     # RX Sample Rate [sps]
     tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 380e6          # Center Frequency (for mixing)
+    freq: 330e6          # Center Frequency (for mixing)
     lo_offset: 0e6      # LO offset [Hz]
     rx_gain: 36          # RX Gain [dB]
     tx_gain: 59.8        # TX Gain [dB] - 60.8 is -10 dBm output
-    bw: 14e6             # TX/RW Bandwidth [Hz]
+    bw: 20e6             # TX/RW Bandwidth [Hz]
     tx_ant: "TX/RX"
     rx_ant: "RX2"
     transmit: false       # "true" (or not set) for normal operation, set to "false" to completely disable transmit
@@ -52,10 +52,10 @@ RF1:                     # parameters for second RF channel
 CHIRP:
     time_offset: 1       # Time before first receive [s]
     tx_duration: *pulse_len # Transmission duration [s]
-    rx_duration: 6.0   # Receive duration [s]
+    rx_duration: 3.0   # Receive duration [s]
     tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
     tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
-    pulse_rep_int: 10.0 # Chirp period [s]
+    pulse_rep_int: 6.5 # Chirp period [s]
     tx_lead: 0e-6        # Time between start of TX and RX[s]
     num_pulses: &num_pulses -1        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
     num_presums: 1
@@ -64,11 +64,11 @@ FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
     save_loc: &save_loc "/media/ssd/radar/rx_samps.bin" #"/dev/shm/rx_samps.bin" #"/media/usb/usrp_test/rx_samps.bin" #"data/rx_samps.bin"  # Save rx data here
     gps_loc: &gps_save_loc "/media/ssd/radar/gps_log.txt" # save gps data here (only works if gpsdo is selected as the clock source)
-    max_chirps_per_file: -1 # Maximum number of RX from a chirp to write to a single file -- set to -1 to avoid breaking into multiple files
+    max_chirps_per_file: 3 # Maximum number of RX from a chirp to write to a single file -- set to -1 to avoid breaking into multiple files
 RUN_MANAGER: # These settings are only used by run.py -- not read by main.cpp at all
     # Note: if max_chirps_per_file = -1 (i.e. all data will be written directly to a single file, then final_save_loc and save_partial_files will be ignored
     final_save_loc: null #"data/rx_samps_merged.bin" # specify the save location for the big final file, set to null if you don't want to save a big file
-    save_partial_files: False # set to true if you want individual small files to be copied, set to false if you just want the big merged file to be copied
+    save_partial_files: True # set to true if you want individual small files to be copied, set to false if you just want the big merged file to be copied
     save_gps: False # set to true if using gps and wanting to save gps location data, set to false otherwise`
 
 
