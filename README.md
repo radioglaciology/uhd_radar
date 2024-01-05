@@ -1,6 +1,6 @@
-# Stanford Radio Glaciology USRP Radar
+# Open Radar Code Architecture (ORCA)
 
-This repository contains a unified set of code for most of Stanford Radio Glaciology's USRP-based radar instruments.
+This repository contains a unified set of code for operating coherent, chirped radar systems USRP-based software-defined radios. ORCA was developed by Stanford Radio Glaciology to increase the accesibility of radar sounder instruments in the glaciological community. Most of Stanford Radio Glaciology's USRP-based radar instruments, including MAPPERR and PEREGRINE, run on this code.
 
 ## Repository Organization
 
