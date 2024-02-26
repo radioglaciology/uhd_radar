@@ -20,6 +20,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" AND ${CMAKE_CXX_COMPILER_ID} STREQUAL "C
     set(CMAKE_CXX_FLAGS "-stdlib=libc++ ${CMAKE_CXX_FLAGS}")
 endif()
 
+add_definitions(-D_LIBCPP_ENABLE_CXX17_REMOVED_FEATURES)
 set(CMAKE_CXX_FLAGS "-Wno-psabi ${CMAKE_CXX_FLAGS}")
 
 ### Set up build environment ##################################################
@@ -29,7 +30,7 @@ set(CMAKE_CXX_FLAGS "-Wno-psabi ${CMAKE_CXX_FLAGS}")
 option(UHD_USE_STATIC_LIBS OFF)
 
 # To add UHD as a dependency to this project, add a line such as this:
-find_package(UHD 3.15.0 REQUIRED)
+find_package(UHD 3.15 REQUIRED)
 find_package(yaml-cpp REQUIRED)
 # The version in  ^^^^^  here is a minimum version.
 # To specify an exact version:

@@ -4,10 +4,10 @@
 GENERATE:
     sample_rate: &s_rate 50e6        # Of the generated chirp, tx and rx sample rates [sps]
     chirp_type: 'linear'             # Can be 'linear'
-    chirp_bandwidth: 40e6            # [Hz]
+    chirp_bandwidth: 20e6            # [Hz]
     window: 'rectangular'            # Window function applied to the chirp
-    chirp_length: &chirp_len 20e-6    # [s] chirp length without zero padding
-    pulse_length: &pulse_len 20e-6    # [s] total pulse length (chirp + symmetric zero padding)
+    chirp_length: &chirp_len 10e-6    # [s] chirp length without zero padding
+    pulse_length: &pulse_len 10e-6    # [s] total pulse length (chirp + symmetric zero padding)
     out_file: &ch_sent "data/chirp.bin"   # The name of the output binary file
     show_plot: False                 # Display a time-domain plot of the generated chirp
 
