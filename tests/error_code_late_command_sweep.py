@@ -66,7 +66,7 @@ def test_with_pulse_rep_int(yaml_filename, pulse_rep_int, timeout_s=60*2, tmp_ya
         n_errors = sum(line.count("ERROR_CODE_LATE_COMMAND") for line in f)
 
     if killed:
-        n_pulses_received = max(config['CHIRP']['num_pulses'], n_errors)
+        n_pulses_received = np.nan #max(config['CHIRP']['num_pulses'], n_errors)
     else:
         with open("uhd_stdout.log", "r") as f:
             rex = '.Total pulses attempted: (\d+)'
@@ -78,7 +78,8 @@ def test_with_pulse_rep_int(yaml_filename, pulse_rep_int, timeout_s=60*2, tmp_ya
     return {'file_prefix': file_prefix, 'pulse_rep_int': pulse_rep_int, 'n_errors': n_errors, 'n_attempts': n_pulses_received}
 
 #expected_cwd = "/home/thomas/Documents/StanfordGrad/RadioGlaciology/sdr"
-expected_cwd = "/home/radioglaciolgy/anna/uhd_radar"
+expected_cwd = "/home/radioglaciology/thomas/uhd_radar"
+#expected_cwd = "/home/radioglaciolgy/anna/uhd_radar"
 
 if __name__ == "__main__":
 
@@ -134,12 +135,12 @@ if __name__ == "__main__":
     
     print(f"pri values: {values}")
     print(f"duty cycles: {duty_cycles}")
-    expected_time = (values[0] * config['CHIRP']['num_pulses']) * 4 # calculate the expected time for the slowest run and add 20% for good measure
     results = {}
 
     # Run sweep
     import pickle
     for v in values:
+        expected_time = 120 + ((v * config['CHIRP']['num_pulses']) * 4) # Time to allow process to run -- two minutes (for setup) + 4x the expected error-free time
         results[v] = test_with_pulse_rep_int(yaml_filename, pulse_rep_int = float(v), timeout_s=expected_time)
 
         for i, j in results.items():
