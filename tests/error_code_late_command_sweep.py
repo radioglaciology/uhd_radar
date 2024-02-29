@@ -9,6 +9,7 @@ from ruamel.yaml import YAML
 import matplotlib.pyplot as plt
 import numpy as np
 import re
+import pickle
 
 sys.path.append("preprocessing")
 from generate_chirp import generate_from_yaml_filename
@@ -75,15 +76,12 @@ def test_with_pulse_rep_int(yaml_filename, pulse_rep_int, timeout_s=60*2, tmp_ya
 
     print(f"{n_errors}/{n_pulses_received} ERROR_CODE_LATE_COMMAND errors detected / pulses attempted")
 
-    return {'file_prefix': file_prefix, 'pulse_rep_int': pulse_rep_int, 'n_errors': n_errors, 'n_attempts': n_pulses_received}
-
-#expected_cwd = "/home/thomas/Documents/StanfordGrad/RadioGlaciology/sdr"
-expected_cwd = "/home/radioglaciology/thomas/uhd_radar"
-#expected_cwd = "/home/radioglaciolgy/anna/uhd_radar"
+    return {'file_prefix': file_prefix, 'pulse_rep_int': pulse_rep_int, 'n_errors': n_errors, 'n_attempts': n_pulses_received, 'process_killed': killed}
 
 if __name__ == "__main__":
 
     # Check for correct working directory
+    expected_cwd = os.popen('git rev-parse --show-toplevel').read().strip() # Root of git repo
     if os.getcwd() != expected_cwd:
         raise Exception(f"This script should ONLY be run from {expected_cwd}. Detected CWD {os.getcwd()}")
 
@@ -128,40 +126,56 @@ if __name__ == "__main__":
         return 100 * active_time / (duty)
 
     duty_cycles = np.arange(pri_to_duty(max(config['CHIRP']['tx_duration'], config['CHIRP']['rx_duration'])), 1.0, -5) # in percent
-    #duty_cycles = np.arange(70, 45, -2) # in percent
-    values = duty_to_pri(duty_cycles)
     duty_cycles = np.flip(duty_cycles)
-    values = np.flip(values)
+    pris = duty_to_pri(duty_cycles)
     
-    print(f"pri values: {values}")
+    print(f"pri values: {pris}")
     print(f"duty cycles: {duty_cycles}")
     results = {}
 
     # Run sweep
-    import pickle
-    for v in values:
-        expected_time = 120 + ((v * config['CHIRP']['num_pulses']) * 4) # Time to allow process to run -- two minutes (for setup) + 4x the expected error-free time
-        results[v] = test_with_pulse_rep_int(yaml_filename, pulse_rep_int = float(v), timeout_s=expected_time)
+    for pri in pris:
+        expected_time = 120 + ((pri * config['CHIRP']['num_pulses']) * 2) # Time to allow process to run -- two minutes (for setup) + 2x the expected error-free time
+        results[pri] = test_with_pulse_rep_int(yaml_filename, pulse_rep_int = float(pri), timeout_s=expected_time)
 
         for i, j in results.items():
             print(f"pulse_rep_int: {i} \tn_errors: {j['n_errors']}\tn_pulses_attempted: {j['n_attempts']}\tprefix: {j['file_prefix']}")
 
-            picklename = f"./tests/{list(results.values())[0]['file_prefix']}_error_code_late_command.pickle"
-            figname = f"./tests/{list(results.values())[0]['file_prefix']}_error_code_late_command.png"
+        # Save results
+        # Save after each run to preserve in case of a crash
+        pickle_path = f"./tests/{results[pris[0]]['file_prefix']}_error_code_late_command.pickle"
 
-            with open(picklename, 'ab') as f:
-                pickle.dump({'n_error_list': j['n_errors'], 'n_pulse_attempts': j['n_attempts'], 'values': i, 'config': j['file_prefix']}, f)
+        pris_so_far = list(results.keys())
+        n_error_list = np.array([results[val]['n_errors'] for val in pris_so_far])
+        n_pulse_attempts = np.array([results[val]['n_attempts'] for val in pris_so_far])
+        was_killed = np.array([results[val]['process_killed'] for val in pris_so_far])
+        with open(pickle_path, 'wb') as f:
+            pickle.dump({
+                'n_error_list': n_error_list,
+                'n_pulse_attempts': n_pulse_attempts,
+                'was_killed': was_killed,
+                'pri': pris_so_far,
+                'config': config
+            }, f)
+        print(f"Pickle file saved to: {pickle_path}")
 
-    n_error_list = np.array([results[val]['n_errors'] for val in values])
-    n_pulse_attempts = np.array([results[val]['n_attempts'] for val in values])
+    duty_cycles = []
+    n_errors = []
+    n_attempted = []
 
-    print(figname)
-    print(picklename)
+    for pri, result in results.items():
+        duty_cycles.append(pri_to_duty(pri))
+        n_errors.append(result['n_errors'])
+        n_attempted.append(result['n_attempts'])
+
+    duty_cyles = np.array(duty_cycles)
+    n_errors = np.array(n_errors)
+    n_attempted = np.array(n_attempted)
 
     fig, ax = plt.subplots(figsize=(10,6), facecolor='white')
     #ax.scatter(duty_cycles, n_error_list / config['CHIRP']['num_pulses'] * 100)
-    ax.scatter(duty_cycles, n_error_list / n_pulse_attempts * 100)
-    ax.set_xlabel('Effective duty cycle [%]') # AB: WHY NOT JUST CALL THIS DUTY CYCLE?
+    ax.scatter(duty_cycles, n_errors / n_attempted * 100)
+    ax.set_xlabel('Duty cycle [%]')
     secax = ax.secondary_xaxis('top', functions=(duty_to_pri, pri_to_duty))
     secax.set_xlabel('pulse_rep_int [microseconds]')
     secax.set_xticks(duty_to_pri(ax.get_xticks()))
@@ -173,4 +187,7 @@ if __name__ == "__main__":
     ax.set_title(f"tx_duration: {config['CHIRP']['tx_duration']}, rx_duration: {config['CHIRP']['rx_duration']}, num_pulses: {config['CHIRP']['num_pulses']}")
     ax.grid()
     fig.tight_layout()
-    fig.savefig(figname)
+
+    fig_path = f"./tests/{results[pris[0]]['file_prefix']}_error_code_late_command.png"
+    fig.savefig(fig_path)
+    print(f"Figure saved to: {fig_path}")
