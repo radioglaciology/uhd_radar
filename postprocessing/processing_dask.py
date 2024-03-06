@@ -296,7 +296,7 @@ def pulse_compress(data: xr.Dataset, chirp, fs: float, zero_sample_idx: int=0, s
     assuming a constant signal speed.
     """
 
-    output_len = data["radar_data"].shape[0]-len(chirp)+1
+    output_len = len(data["sample_idx"])-len(chirp)+1
     travel_time = np.linspace(0, output_len/fs, output_len)
     travel_time = travel_time - travel_time[zero_sample_idx]
 
