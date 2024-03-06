@@ -330,7 +330,7 @@ def pulse_compress(data: xr.Dataset, chirp, fs: float, zero_sample_idx: int=0, s
 
     # Save the input parameters for future reference
     compressed.attrs["pulse_compress"]={
-            "fs": fs, "chirp": chirp, "zero_sample_idx": zero_sample_idx, "signal_speed": signal_speed}
+            "fs": fs, "zero_sample_idx": zero_sample_idx, "signal_speed": signal_speed}
     
     return compressed
 
