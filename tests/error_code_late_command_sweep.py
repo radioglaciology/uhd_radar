@@ -9,6 +9,7 @@ from ruamel.yaml import YAML
 import matplotlib.pyplot as plt
 import numpy as np
 import re
+import pickle
 
 sys.path.append("preprocessing")
 from generate_chirp import generate_from_yaml_filename
@@ -66,7 +67,7 @@ def test_with_pulse_rep_int(yaml_filename, pulse_rep_int, timeout_s=60*2, tmp_ya
         n_errors = sum(line.count("ERROR_CODE_LATE_COMMAND") for line in f)
 
     if killed:
-        n_pulses_received = max(config['CHIRP']['num_pulses'], n_errors)
+        n_pulses_received = np.nan #max(config['CHIRP']['num_pulses'], n_errors)
     else:
         with open("uhd_stdout.log", "r") as f:
             rex = '.Total pulses attempted: (\d+)'
@@ -75,15 +76,12 @@ def test_with_pulse_rep_int(yaml_filename, pulse_rep_int, timeout_s=60*2, tmp_ya
 
     print(f"{n_errors}/{n_pulses_received} ERROR_CODE_LATE_COMMAND errors detected / pulses attempted")
 
-    return {'file_prefix': file_prefix, 'pulse_rep_int': pulse_rep_int, 'n_errors': n_errors, 'n_attempts': n_pulses_received}
-    #return {'file_prefix': "", 'pulse_rep_int': pulse_rep_int, 'n_errors': n_errors}
-
-#expected_cwd = "/home/thomas/Documents/StanfordGrad/RadioGlaciology/sdr"
-expected_cwd = "/home/radioglaciolgy/anna/uhd_radar"
+    return {'file_prefix': file_prefix, 'pulse_rep_int': pulse_rep_int, 'n_errors': n_errors, 'n_attempts': n_pulses_received, 'process_killed': killed}
 
 if __name__ == "__main__":
 
     # Check for correct working directory
+    expected_cwd = os.popen('git rev-parse --show-toplevel').read().strip() # Root of git repo
     if os.getcwd() != expected_cwd:
         raise Exception(f"This script should ONLY be run from {expected_cwd}. Detected CWD {os.getcwd()}")
 
@@ -91,8 +89,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("yaml_file", nargs='?', default='config/default.yaml',
             help='Path to YAML configuration file')
-    parser.add_argument("--full_duplex", action='store_true',
-                        help='Calculate duty cycle for a full duplex transport layer. By default, assumes half duplex.')
+    parser.add_argument("--half_duplex", action='store_true',
+                        help='Calculate duty cycle for a half duplex transport layer. By default, assumes full duplex.')
     args = parser.parse_args()
     yaml_filename = args.yaml_file
 
@@ -111,13 +109,13 @@ if __name__ == "__main__":
     os.chdir("../..")
 
     # Figure out a reasonable sweep range
-    if args.full_duplex:
-        active_time = max(config['CHIRP']['tx_duration'], config['CHIRP']['rx_duration'])
-        print(f"Full-duplex mode. Using active time of {active_time} seconds, which is the maximum of tx_duration and rx_duration")
-    else:
+    if args.half_duplex:
         active_time = (config['CHIRP']['tx_duration'] + config['CHIRP']['rx_duration']) / 2
         print(f"Half-duplex mode. Using active time of {active_time} seconds, which is the average of tx_duration and rx_duration")
-    
+    else:
+        active_time = max(config['CHIRP']['tx_duration'], config['CHIRP']['rx_duration'])
+        print(f"Full-duplex mode. Using active time of {active_time} seconds, which is the maximum of tx_duration and rx_duration")
+
     # Converters to show pulse_rep_int in terms of the effective duty cycle
     # (averaged across TX and RX)
     # pri is in milliseconds
@@ -128,42 +126,68 @@ if __name__ == "__main__":
         return 100 * active_time / (duty)
 
     duty_cycles = np.arange(pri_to_duty(max(config['CHIRP']['tx_duration'], config['CHIRP']['rx_duration'])), 1.0, -5) # in percent
-    values = duty_to_pri(duty_cycles)
-    print(f"pri values: {values}")
-    expected_time = (values[-1] * config['CHIRP']['num_pulses']) * 2 # calculate the expected time for the slowest run and add 20% for good measure
+    duty_cycles = np.flip(duty_cycles)
+    pris = duty_to_pri(duty_cycles)
+    
+    print(f"pri values: {pris}")
+    print(f"duty cycles: {duty_cycles}")
     results = {}
 
     # Run sweep
-    for v in values:
-        results[v] = test_with_pulse_rep_int(yaml_filename, pulse_rep_int = float(v), timeout_s=expected_time)
+    for pri in pris:
+        expected_time = 120 + ((pri * config['CHIRP']['num_pulses']) * 2) # Time to allow process to run -- two minutes (for setup) + 2x the expected error-free time
+        results[pri] = test_with_pulse_rep_int(yaml_filename, pulse_rep_int = float(pri), timeout_s=expected_time)
 
-    for k, v in results.items():
-        print(f"pulse_rep_int: {k} \tn_errors: {v['n_errors']}\tn_pulses_attempted: {v['n_attempts']}\tprefix: {v['file_prefix']}")
+        for i, j in results.items():
+            print(f"pulse_rep_int: {i} \tn_errors: {j['n_errors']}\tn_pulses_attempted: {j['n_attempts']}\tprefix: {j['file_prefix']}")
 
-    n_error_list = np.array([results[v]['n_errors'] for v in values])
-    n_pulse_attempts = np.array([results[v]['n_attempts'] for v in values])
+        # Save results
+        # Save after each run to preserve in case of a crash
+        pickle_path = f"./tests/{results[pris[0]]['file_prefix']}_error_code_late_command.pickle"
 
-    import pickle
-    figname = f"./tests/{list(results.values())[-1]['file_prefix']}_error_code_late_command.png"
-    picklename = f"./tests/{list(results.values())[-1]['file_prefix']}_error_code_late_command.pickle"
-    print(figname)
-    print(picklename)
-    with open(picklename, 'wb') as f:
-        pickle.dump({'n_error_list': n_error_list, 'n_pulse_attempts': n_pulse_attempts, 'values': values, 'config': config}, f)
+        pris_so_far = list(results.keys())
+        n_error_list = np.array([results[val]['n_errors'] for val in pris_so_far])
+        n_pulse_attempts = np.array([results[val]['n_attempts'] for val in pris_so_far])
+        was_killed = np.array([results[val]['process_killed'] for val in pris_so_far])
+        with open(pickle_path, 'wb') as f:
+            pickle.dump({
+                'n_error_list': n_error_list,
+                'n_pulse_attempts': n_pulse_attempts,
+                'was_killed': was_killed,
+                'pri': pris_so_far,
+                'config': config
+            }, f)
+        print(f"Pickle file saved to: {pickle_path}")
+
+    duty_cycles = []
+    n_errors = []
+    n_attempted = []
+
+    for pri, result in results.items():
+        duty_cycles.append(pri_to_duty(pri))
+        n_errors.append(result['n_errors'])
+        n_attempted.append(result['n_attempts'])
+
+    duty_cyles = np.array(duty_cycles)
+    n_errors = np.array(n_errors)
+    n_attempted = np.array(n_attempted)
 
     fig, ax = plt.subplots(figsize=(10,6), facecolor='white')
     #ax.scatter(duty_cycles, n_error_list / config['CHIRP']['num_pulses'] * 100)
-    ax.scatter(duty_cycles, n_error_list / n_pulse_attempts * 100)
-    ax.set_xlabel('Effective duty cycle [%]') # AB: WHY NOT JUST CALL THIS DUTY CYCLE?
+    ax.scatter(duty_cycles, n_errors / n_attempted * 100)
+    ax.set_xlabel('Duty cycle [%]')
     secax = ax.secondary_xaxis('top', functions=(duty_to_pri, pri_to_duty))
     secax.set_xlabel('pulse_rep_int [microseconds]')
     secax.set_xticks(duty_to_pri(ax.get_xticks()))
     secax.set_xticklabels([f"{x*1e6:.2f} us" for x in secax.get_xticks()], rotation="vertical")
     ax.set_ylim(0, 100)
-    ax.set_xlim(duty_cycles[0], duty_cycles[-1])
+    ax.set_xlim(duty_cycles[-1], duty_cycles[0])
 
     ax.set_ylabel('Percent of ERROR_CODE_LATE_COMMAND [%]') # AB: COULD CALL THIS THE ERROR RATE
     ax.set_title(f"tx_duration: {config['CHIRP']['tx_duration']}, rx_duration: {config['CHIRP']['rx_duration']}, num_pulses: {config['CHIRP']['num_pulses']}")
     ax.grid()
     fig.tight_layout()
-    fig.savefig(figname)
+
+    fig_path = f"./tests/{results[pris[0]]['file_prefix']}_error_code_late_command.png"
+    fig.savefig(fig_path)
+    print(f"Figure saved to: {fig_path}")
