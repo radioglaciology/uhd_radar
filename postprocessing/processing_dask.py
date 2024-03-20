@@ -217,13 +217,17 @@ def check_if_error_data_exists(data, errors=None):
     else:
         return "unexpected_data_length"
 
-def fill_errors(data, error_fill_value=np.nan, allowed_file_error_types=[]):
+def fill_errors(data, error_fill_value=np.nan, allowed_file_error_types=[], file_error_type=""):
     """
     Replace all values from chirps with a reported error with the specified error_fill_value
     """
 
     _, errors = process_stdout_log(data.attrs["stdout_log"])
-    file_error_type = check_if_error_data_exists(data, errors)
+    
+    # allow the user to force a specific type of error handling if they know what the file config was
+    # most useful for old data files or data files with ctrl-c endings
+    if file_error_type == "":
+        file_error_type = check_if_error_data_exists(data, errors)
 
     if file_error_type != "error_data_included":
         if (file_error_type in allowed_file_error_types):
@@ -242,13 +246,17 @@ def fill_errors(data, error_fill_value=np.nan, allowed_file_error_types=[]):
         
     return result
 
-def remove_errors(data, skip_if_already_complete=True, allowed_file_error_types=[]):
+def remove_errors(data, skip_if_already_complete=True, allowed_file_error_types=[], file_error_type=""):
     """
     Remove received data associated with chrips with a reported error
     """
 
     _, errors = process_stdout_log(data.attrs["stdout_log"])
-    file_error_type = check_if_error_data_exists(data, errors)
+    
+    # allow the user to force a specific type of error handling if they know what the file config was
+    # most useful for old data files or data files with ctrl-c endings
+    if file_error_type == "":
+        file_error_type = check_if_error_data_exists(data, errors)
 
     if file_error_type != "error_data_included":
         if (file_error_type in allowed_file_error_types):
