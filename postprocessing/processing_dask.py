@@ -13,24 +13,25 @@ import processing as old_processing
 def process_stdout_log(log):
     """
     Load timestamp and ERROR_CODE_LATE_COMMAND information from UHD radar code stdout.
-    Returns the starting timestamp and a dictionary of errors, where the keys are
+    Returns the starting timestamp the number of pulses attempted and a dictionary of errors, where the keys are
     chirp indices and the values are error codes.
     """
     errors = {}
     start_timestamp = None
+    num_pulses_attempted = None
 
     for idx, line in enumerate(log.splitlines()):
         if "Receiver error:" in line:
             error_code = re.search(
-                "(?:Receiver error: )([\w_]+)", line).groups()[0]
+                r"(?:Receiver error: )([\w_]+)", line).groups()[0]
             old_style_regex_search = re.search(
-                "(?:Scheduling chirp )([\d]+)", log[idx-1])
+                r"(?:Scheduling chirp )([\d]+)", log[idx-1])
             if old_style_regex_search is not None:
                 chirp_idx = int(
-                    re.search("(?:Scheduling chirp )([\d]+)", log[idx-1]).groups()[0])
+                    re.search(r"(?:Scheduling chirp )([\d]+)", log[idx-1]).groups()[0])
             else:
                 chirp_idx = int(
-                    re.search("(?:Chirp )([\d]+)", line).groups()[0])
+                    re.search(r"(?:Chirp )([\d]+)", line).groups()[0])
             errors[chirp_idx] = error_code
             if error_code != "ERROR_CODE_LATE_COMMAND":
                 print(
@@ -38,12 +39,14 @@ def process_stdout_log(log):
                 print(f"Full message: {line}")
         if ("[START]" in line) or ("Scheduling chirp 0 RX" in line):
             start_timestamp = float(
-                re.search("(?:\[)([\d]+\.[\d]+)", line).groups()[0])
+                re.search(r"(?:\[)([\d]+\.[\d]+)", line).groups()[0])
+        if ("Total pulses attempted" in line): 
+            num_pulses_attempted = int(re.search(r": ([\d]+)", line).groups()[0])
 
-    return start_timestamp, errors
+    return start_timestamp, errors, num_pulses_attempted
 
 
-def save_radar_data_to_zarr(prefix, skip_if_cached=True, zarr_base_location=None, expected_base_name_regex='\d{8}_\d{6}', log_required=True, dryrun=False):
+def save_radar_data_to_zarr(prefix, skip_if_cached=True, zarr_base_location=None, expected_base_name_regex=r'\d{8}_\d{6}', log_required=True, dryrun=False):
     """
     Load raw radar data from a given prefix, and save it to a zarr file.
     
@@ -165,7 +168,7 @@ def save_radar_data_to_zarr(prefix, skip_if_cached=True, zarr_base_location=None
 
     return zarr_path
 
-def check_if_error_data_exists(data, errors=None):
+def check_if_error_data_exists(data, errors=None, num_pulses_attempted=-1):
     """
 
     Attempts to automatically correct for an unintended behavior of some versions of the code.
@@ -201,29 +204,32 @@ def check_if_error_data_exists(data, errors=None):
     """
 
     pulses_requested = data.attrs['config']['CHIRP']['num_pulses']
-    pulses_in_data = len(data.pulse_idx)
+    pulses_in_data = len(data.pulse_idx) * data.attrs['config']['CHIRP']['num_presums']
     
     if not errors:
-        _, errors = process_stdout_log(data.attrs["stdout_log"])
+        _, errors, num_pulses_attempted = process_stdout_log(data.attrs["stdout_log"])
     
     n_errors = len(errors)
 
     if pulses_requested < 0:
         return "unknown" # Number of attempted pulses unknown, so cannot trivially determine if error data is included
-    elif pulses_in_data == pulses_requested:
+    elif pulses_in_data == pulses_requested == num_pulses_attempted:
         return "error_data_included"
-    elif pulses_in_data == (pulses_requested - n_errors):
+    elif pulses_in_data == (pulses_requested - n_errors) or pulses_requested == pulses_in_data == (num_pulses_attempted - n_errors):
         return "error_data_not_included"
     else:
         return "unexpected_data_length"
 
-def fill_errors(data, error_fill_value=np.nan, allowed_file_error_types=[]):
+def fill_errors(data, error_fill_value=np.nan, allowed_file_error_types=[], force_file_error_type=None):
     """
     Replace all values from chirps with a reported error with the specified error_fill_value
     """
 
-    _, errors = process_stdout_log(data.attrs["stdout_log"])
-    file_error_type = check_if_error_data_exists(data, errors)
+    _, errors, num_pulses_attempted = process_stdout_log(data.attrs["stdout_log"])
+    file_error_type = check_if_error_data_exists(data, errors, num_pulses_attempted)
+
+    if force_file_error_type != None: # force the file error type if we want control over error handling behavior
+        file_error_type = force_file_error_type
 
     if file_error_type != "error_data_included":
         if (file_error_type in allowed_file_error_types):
@@ -242,13 +248,16 @@ def fill_errors(data, error_fill_value=np.nan, allowed_file_error_types=[]):
         
     return result
 
-def remove_errors(data, skip_if_already_complete=True, allowed_file_error_types=[]):
+def remove_errors(data, skip_if_already_complete=True, allowed_file_error_types=[], force_file_error_type=None):
     """
     Remove received data associated with chrips with a reported error
     """
 
-    _, errors = process_stdout_log(data.attrs["stdout_log"])
+    _, errors, num_pulses_attempted = process_stdout_log(data.attrs["stdout_log"])
     file_error_type = check_if_error_data_exists(data, errors)
+
+    if force_file_error_type != None: # force the file error type if we want control over error handling behavior
+        file_error_type = force_file_error_type
 
     if file_error_type != "error_data_included":
         if (file_error_type in allowed_file_error_types):
