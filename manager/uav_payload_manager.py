@@ -101,6 +101,14 @@ def start_recording():
     current_state = "starting"
     update_led_state()
 
+    # Chirp generation
+    print("Re-generating chirp")
+    try:
+        generate_from_yaml_filename(yaml_filename)
+    except Exception as e:
+        print(e)
+        error_and_quit()
+
     uhd_process = subprocess.Popen(["./radar", yaml_filename], stdout=subprocess.PIPE, bufsize=1, close_fds=True, text=True, cwd="sdr/build")
     uhd_output_reader_thread = threading.Thread(target=log_output_from_usrp, args=(uhd_process.stdout, open('uhd_stdout.log', 'w')))
     uhd_output_reader_thread.daemon = True # thread dies with the program
