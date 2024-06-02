@@ -1,75 +1,145 @@
-# This is a configuration file meant for the Ettus USRP B205mini-i
+# This is an example of a YAML configuration file used to set parameters for the
+# ORCA system.
+# This configuration file is meant for the Ettus USRP B205mini-i.
 
-# ----------------------- Chirp generation ------------------------ #
+### CHIRP AND PULSE PARAMETERS
 GENERATE:
-    sample_rate: &s_rate 56e6        # Of the generated chirp, tx and rx sample rates [sps]
-    chirp_type: 'linear'             # Can be 'linear'
-    chirp_bandwidth: 25e6            # [Hz]
-    lo_offset_sw: 0e6               #  [Hz] lo offset to be applied digitally in chirp generation 
-    window: 'kaiser14'            # Window function applied to the chirp
-    chirp_length: &chirp_len 20e-6    # [s] chirp length without zero padding
-    pulse_length: &pulse_len 20e-6    # [s] total pulse length (chirp + symmetric zero padding)    
-    out_file: &ch_sent "data/chirp.bin"   # The name of the output binary file
-    show_plot: False                 # Display a time-domain plot of the generated chirp
+    sample_rate: &s_rate 56e6            # [Hz] Sample rate of the generated
+                                         #   chirp (used as TX and RX rate too)
+    chirp_type: 'linear'                 # Chirp frequency progression type.
+                                         #   Supported options: "linear",
+                                         #   "hyperbolic"
+    chirp_bandwidth: 25e6                # [Hz] Bandwidth of the chirp
+    lo_offset_sw: 0e6                    # [Hz] Center frequency of the chirp
+                                         #   (relative to RF center frequency)
+    window: 'rectangular'                # Window function applied to the chirp
+                                         #   Supported options: "rectangular",
+                                         #   "hamming", "blackman", "kaiser10",
+                                         #   "kaiser14", "kaiser18"
+    chirp_length: &chirp_len 20e-6       # [s] Chirp length without zero padding
+    pulse_length: &pulse_len 20e-6       # [s] Total pulse length (chirp +
+                                         #   symmetric zero padding)    
+    out_file: &ch_sent "data/chirp.bin"  # The name of the output binary file
+                                         #   containing the pulse samples
+    show_plot: False                     # Display a time-domain plot of the
+                                         #   generated chirp
 
-# ----------------- TX/RX for USRP_B205mini-i --------------------- #
+### DEVICE CONNECTION AND DATA TRANSFER
 DEVICE:
-    device_args: "num_recv_frames=700,num_send_frames=700,recv_frame_size=11000,send_frame_size=11000"   # device address
-    subdev: "A:A"
-    clk_ref: "internal"
-    clk_rate: 56e6       # Clock Rate [Hz]
-    tx_channels: "0"
-    rx_channels: "0"
-    cpu_format: "fc32" # CPU-side format    - see https://files.ettus.com/manual/structuhd_1_1stream__args__t.html#a602a64b4937a85dba84e7f724387e252
-                       # Note: the rest of the processing pipeline supports only the following cpu_format options: fc32, sc16, sc8
-    otw_format: "sc12" # On the wire format - see https://files.ettus.com/manual/structuhd_1_1stream__args__t.html#a0ba0e946d2f83f7ac085f4f4e2ce9578
+    # USRP device arguments are used to identify specific SDRs (if multiple are
+    # connected to the same computer), to configure model-specific parameters, 
+    # and to set transport parameters of the link (USB, ethernet) between the
+    # SDR and the host computer. For advice on tuning transport parameters, see:
+    # https://radioglaciology.github.io/orca-documentation/docs/radar/host-connection/
+    # For more details, see the relevant Ettus help pages:
+    # Device identification: https://files.ettus.com/manual/page_identification.html
+    # Advanced config: https://files.ettus.com/manual/page_configuration.html
+    # Transport parameters: https://files.ettus.com/manual/page_transport.html
+    device_args: "num_recv_frames=700,num_send_frames=700,recv_frame_size=11000,send_frame_size=11000"
+    subdev: "A:A"                        # Active SDR submodules
+                                         #   See https://files.ettus.com/manual/page_configuration.html
+    clk_ref: "internal"                  # Clock reference source
+                                         #   See https://files.ettus.com/manual/page_sync.html
+    clk_rate: 56e6                       # [Hz] SDR main clock frequency
+    tx_channels: "0"                     # List of TX channels to use (command
+                                         #   separated)
+    rx_channels: "0"                     # List of RX channels to use (command
+                                         #   separated)
+                                         #   (must be the same length as tx_channels)
+    cpu_format: "fc32"                   # CPU-side sample format
+                                         #   See https://files.ettus.com/manual/structuhd_1_1stream__args__t.html#a602a64b4937a85dba84e7f724387e252
+                                         #   Supported options: "fc32", "sc16",
+                                         #   "sc8"
+    otw_format: "sc12"                   # On the wire format
+                                         #   See https://files.ettus.com/manual/structuhd_1_1stream__args__t.html#a0ba0e946d2f83f7ac085f4f4e2ce9578
+                                         #   (Any format supported.)
+### GPIO PIN CONFIGURATION
 GPIO:
-    gpio_bank: "FP0"     # which GPIO bank to use (FP0 is front panel and default)
-    pwr_amp_pin: "-1"     # which GPIO pin (on the DB15 connector) to use for external power amplifier control (set to -1 if not using)
-    ref_out: -1          # whether to turn the 10 MHz reference out signal on (1) or off (0) set to (-1) if SDR does not support
+    gpio_bank: "FP0"                     # Which GPIO bank to use (FP0 is front
+                                         #   panel and default)
+    pwr_amp_pin: "-1"                    # Which GPIO pin to use for external
+                                         #   power amplifier control
+                                         #   (set to -1 if not using)
+    ref_out: -1                          # Turns the 10 MHz reference out signal
+                                         #   on (1) or off (0)
+                                         #   set to (-1) if SDR does not support
+### RF FRONTEND 0 CONFIGURATION
 RF0:
-    rx_rate: *s_rate     # RX Sample Rate [sps]
-    tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 380e6          # Center Frequency (for mixing)
-    lo_offset: 15e6      # LO offset [Hz]
-    rx_gain: 36          # RX Gain [dB]
-    tx_gain: 59.8        # TX Gain [dB] - 60.8 is -10 dBm output
-    bw: 30e6             # TX/RW Bandwidth [Hz]
-    tx_ant: "TX/RX"
-    rx_ant: "RX2"
-    transmit: true       # "true" (or not set) for normal operation, set to "false" to completely disable transmit
-    tuning_args: "" # set int_n or fractional tuning args, leave as "" to do nothing
-RF1:                     # parameters for second RF channel
-    rx_rate: *s_rate     # RX Sample Rate [sps]
-    tx_rate: *s_rate     # TX Sample Rate [sps]
-    freq: 500e6          # Center Frequency (for mixing)
-    lo_offset: 0        # LO offset [Hz]
-    rx_gain: 10         # RX Gain [dB]
-    tx_gain: 10         # TX Gain [dB]
-    bw: 0                # TX/RW Bandwidth [Hz]
-    tx_ant: "TX/RX"
-    rx_ant: "RX2"
+    rx_rate: *s_rate                     # [Hz] RX Sample Rate
+    tx_rate: *s_rate                     # [Hz] TX Sample Rate
+    freq: 450e6                          # [Hz] Center Frequency (mixer frequency)
+    lo_offset: 15e6                      # [Hz] LO offset
+    rx_gain: 36                          # [dB] RX Gain
+    tx_gain: 65                          # [dB] TX Gain - 60.8 is about -10 dBm
+                                         #   output on the b205mini
+    bw: 56e6                             # [Hz] Configurable filter bandwidth
+    tx_ant: "TX/RX"                      # Port to be used for TX
+    rx_ant: "RX2"                        # port to be used for RX
+    transmit: true                       # "true" (or not set) for normal operation,
+                                         #   set to "false" to completely disable transmit
+    tuning_args: ""                      # Set int_n or fractional tuning args,
+                                         #   leave as "" to do nothing (only
+                                         #   supported on some SDRs)
+### RF FRONTEND 1 CONFIGURATION (not supported on b205mini)
+RF1:
+    rx_rate: *s_rate                     # [Hz] RX Sample Rate
+    tx_rate: *s_rate                     # [Hz] TX Sample Rate
+    freq: 450e6                          # [Hz] Center Frequency (mixer frequency)
+    lo_offset: 0e6                       # [Hz] LO offset
+    rx_gain: 10                          # [dB] RX Gain
+    tx_gain: 10                          # [dB] TX Gain - 60.8 is about -10 dBm
+                                         #   output on the b205mini
+    bw: 56e6                             # [Hz] Configurable filter bandwidth
+    tx_ant: "TX/RX"                      # Port to be used for TX
+    rx_ant: "RX2"                        # port to be used for RX
+    transmit: false                      # "true" (or not set) for normal operation,
+                                         #   set to "false" to completely disable transmit
+    tuning_args: ""                      # Set int_n or fractional tuning args,
+                                         #   leave as "" to do nothing (only
+                                         #   supported on some SDRs)
+### PULSE TIMING
 CHIRP:
-    time_offset: 1       # Time before first receive [s]
-    tx_duration: *pulse_len # Transmission duration [s]
-    rx_duration: 60e-6   # Receive duration [s]
-    tr_on_lead: 0e-6     # Time from GPIO output toggle on to TX [s]
-    tr_off_trail: 0e-6  # Time from TX off to GPIO output off [s]
-    pulse_rep_int: 500e-6 # Chirp period [s]
-    tx_lead: 0e-6        # Time between start of TX and RX[s]
-    num_pulses: &num_pulses 10000        # No. of chirps to TX/RX - set to -1 to continuously transmit pulses until stopped
-    num_presums: 100
-    phase_dithering: true
+    time_offset: 1                       # [s] Offset time before the first
+                                         #   received sample
+    tx_duration: *pulse_len              # [s] Transmission duration
+    rx_duration: 20e-6                   # [s] Receive duration
+    tr_on_lead: 0e-6                     # [s] Time from GPIO output toggle on
+                                         #   to TX (if using GPIO)
+    tr_off_trail: 0e-6                   # [s] Time from TX off to GPIO output
+                                         #   off (if using GPIO)
+    pulse_rep_int: 200e-6                # [s] Pulse period
+    tx_lead: 0e-6                        # [s] Time between start of TX and RX
+    num_pulses: &num_pulses 10000        # No. of chirps to TX/RX - set to -1 to
+                                         #   continuously transmit pulses until
+                                         #   stopped
+    num_presums: 1                       # Number of received pulses to average
+                                         #   over before writing to file
+    phase_dithering: true                # Enable phase dithering
+### DURING-RECORDING FILE LOCATIONS
 FILES:
-    chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "data/rx_samps.bin" #"/dev/shm/rx_samps.bin" #"/media/usb/usrp_test/rx_samps.bin" #"data/rx_samps.bin"  # Save rx data here
-    gps_loc: &gps_save_loc "data/gps_log.txt" # save gps data here (only works if gpsdo is selected as the clock source)
-    max_chirps_per_file: -1 # Maximum number of RX from a chirp to write to a single file -- set to -1 to avoid breaking into multiple files
-RUN_MANAGER: # These settings are only used by run.py -- not read by main.cpp at all
-    # Note: if max_chirps_per_file = -1 (i.e. all data will be written directly to a single file, then final_save_loc and save_partial_files will be ignored
-    final_save_loc: null #"data/rx_samps_merged.bin" # specify the save location for the big final file, set to null if you don't want to save a big file
-    save_partial_files: False # set to true if you want individual small files to be copied, set to false if you just want the big merged file to be copied
-    save_gps: False # set to true if using gps and wanting to save gps location data, set to false otherwise`
+    chirp_loc: *ch_sent                  # Chirp file to transmit
+    save_loc: &save_loc "data/rx_samps.bin"   # (Temporary) location to write
+                                              #   received samples to
+    gps_loc: &gps_save_loc "data/gps_log.txt" # (Temporary) location to save GPS
+                                              #   data (only works if gpsdo is
+                                              #   selected as the clock source)
+    max_chirps_per_file: -1              # Maximum number of RX from a chirp to
+                                         #   write to a single file set to -1 to
+                                         #   avoid breaking into multiple files
+### RUN.PY FILE SAVE LOCATIONS
+RUN_MANAGER: # These settings are only used by run.py -- not read by main.cpp
+    # Note: if max_chirps_per_file = -1 (i.e. all data will be written directly
+    # to a single file, then final_save_loc and save_partial_files will be ignored
+    final_save_loc: null                 # Save location for the big final file,
+                                         #   set to null if you don't want to
+                                         #   save a big file
+    save_partial_files: False            # Set to true if you want individual
+                                         #   small files to be copied, set to
+                                         #   false if you just want the big
+                                         #   merged file to be copied
+    save_gps: False                      # Set to true if using gps and wanting
+                                         #   to save gps location data, set to
+                                         #   false otherwise
 
 
 
