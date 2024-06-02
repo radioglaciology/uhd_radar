@@ -13,7 +13,7 @@ This repository contains a unified set of code for operating coherent, chirped r
 
 ## Configuring your environment
 
-The easiest way to make sure you have the right dependencies to run everything here is to use conda. If you're new to conda, there are some notes on setting things up [here](conda.md).
+The easiest way to make sure you have the right dependencies to run everything here is to use conda. If you're new to conda, there are some notes on setting things up [here](tips/conda.md).
 
 Dependencies for this project are managed through the `environment.yaml` file. You can create a conda environment with everything you need to run this code like this:
 
@@ -55,7 +55,7 @@ Please check that the changes you made are what you expected before committing t
 
 ### Using Visual Studio Code
 
-It takes a few extra steps to tell Visual Studio Code that you're using the conda environment. For setup instructions, [see here](vscode.md).
+It takes a few extra steps to tell Visual Studio Code that you're using the conda environment. For setup instructions, [see here](tips/vscode.md).
 
 ## Adding features, git conventions
 
