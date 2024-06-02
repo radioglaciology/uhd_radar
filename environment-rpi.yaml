@@ -14,3 +14,9 @@ dependencies:
   - zarr
   - hvplot
   - datashader
+  - pip
+  - pip:
+    - gpiozero
+    - RPi.GPIO
+    - sparkfun-qwiic
+    - pi-ina219

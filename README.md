@@ -19,6 +19,10 @@ Dependencies for this project are managed through the `environment.yaml` file. Y
 
 `conda env create -n myenvironmentname -f environment.yaml`
 
+(Specifying `-n myenvironmentname` is optional. The default, as specified in `environment.yaml` is `uhd`.)
+
+If you are setting an environment up on a Raspberry Pi, we recommend using `environment-rpi.yaml` instead. This version includes additional dependencies used by `manager/uav_payload_manager.py`, a helper script designed to run only on Raspberry Pi-based radar instruments.
+
 Then activate it like this:
 
 `conda activate myenvironmentname`
