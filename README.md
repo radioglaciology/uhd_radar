@@ -1,6 +1,10 @@
 # Open Radar Code Architecture (ORCA)
 
+[![Code - uhd_radar](https://img.shields.io/badge/Code-uhd__radar-2ea44f?logo=github)](https://github.com/radioglaciology/uhd_radar) [![Docs - orca-documentation](https://img.shields.io/badge/Docs-orca--documentation-blue)](https://radioglaciology.github.io/orca-documentation/) [![Please Cite Us!](https://img.shields.io/badge/Please_Cite_Us!-blue)](https://radioglaciology.github.io/orca-documentation/about/)
+
 This repository contains a unified set of code for operating coherent, chirped radar systems USRP-based software-defined radios. ORCA was developed by Stanford Radio Glaciology to increase the accesibility of radar sounder instruments in the glaciological community. Most of Stanford Radio Glaciology's USRP-based radar instruments, including MAPPERR and PEREGRINE, run on this code.
+
+For detailed documentation, see the "Docs" badge above.
 
 ## Repository Organization
 
