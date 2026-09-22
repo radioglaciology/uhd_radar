@@ -51,4 +51,4 @@ jobs:
         run: conda run -n uhd bash -c "PYTHONPATH=. pytest tests/"
 
       - name: Run C++ Tests
-        run: ctest --test-dir build --output-on-failure --extra-verbose
+        run: ctest --test-dir build --output-on-failure --extra-verbose -E "gpsLock|check10MhzLock|checkAndSetTime|detectChannels|setRFParams|refLoLockDetect|setupGpio"

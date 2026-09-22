@@ -151,5 +151,22 @@ PLOT:
     direct_start: &dir_start 0    # Start search for direct path @ this sample
     echo_start: 1                  # Start search for echo @ this # of samps. after direct path
 
+ENVIRONMENTAL_FACTORS:  #these are the factors that affect the power equation that is needed in the automatic amplification file in postprocessing
 
+    scattering_max: 1 #assumes max
 
+    scattering_current: 0.5 #user input
+
+    specular_reflection_coeff_max: 1 # assuming s pol, max
+
+    specular_reflection_coeff_current: 0.5 #user input
+
+    antenna_gain: 6 #user input in dB
+
+    tilt_of_plane: 0 #theta, user input
+
+    reference_power: -66 #user input in dBm
+
+    power_loss: 35 #user input in dB
+
+    max_rx_gain: 76 #specific to USRP b205 mini

@@ -14,6 +14,7 @@ def save_data(yaml_filename, extra_files={}, alternative_rx_samps_loc=None, num_
     yaml = ym()
     with open(yaml_filename) as stream:
         config = yaml.load(stream)
+
     output_dir = config['FILES'].get('output_dir', 'data')
     save_loc = os.path.join(output_dir, config['FILES']['save_loc'])
     gps_loc = os.path.join(output_dir, config['FILES']['gps_loc'])
@@ -23,8 +24,6 @@ def save_data(yaml_filename, extra_files={}, alternative_rx_samps_loc=None, num_
 
     shutil.copy(yaml_filename, file_prefix + "_config.yaml")
     if config['FILES']['max_chirps_per_file'] == -1:
-            
-            
             shutil.move(save_loc, file_prefix + "_rx_samps.bin")
     else:
         if config['RUN_MANAGER']['save_partial_files']:

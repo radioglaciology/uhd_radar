@@ -114,7 +114,8 @@ void Sdr::createUsrp(){
 void Sdr::setupUsrp(){
   if (clk_ref == "gpsdo") {
     check10MhzLock();
-    gpsLockAndTime();
+    gpsLock();
+    checkAndSetTime();
   }else{
     // set the USRP time, let chill for a little bit to lock
     usrp->set_time_next_pps(time_spec_t(0.0));
@@ -183,7 +184,7 @@ void Sdr::check10MhzLock(){
  * isn't accurate.
  *
 */
-void Sdr::gpsLockAndTime(){
+void Sdr::gpsLock(){
   //wait for GPS lock
   bool gps_locked = usrp->get_mboard_sensor("gps_locked", 0).to_bool();
   size_t num_gps_locked = 0;
@@ -202,18 +203,6 @@ void Sdr::gpsLockAndTime(){
           << "WARNING:  GPS not locked - time will not be accurate until locked"
           << endl;
     }
-
-  //set GPS time
-    time_spec_t gps_time = time_spec_t(
-        int64_t(usrp->get_mboard_sensor("gps_time", 0).to_int()));
-    usrp->set_time_next_pps(gps_time + 1.0, 0);
-
-    // Wait for it to apply
-    // The wait is 2 seconds because N-Series has a known issue where
-    // the time at the last PPS does not properly update at the PPS edge
-    // when the time is actually set.
-    this_thread::sleep_for(chrono::seconds(2));
-    checkTime(gps_time);
 }
 /*** @brief Checks the USRP time against GPS time
  *
@@ -221,9 +210,17 @@ void Sdr::gpsLockAndTime(){
  * from USRP device, and prints results. If the GPS time matches the last PPS time,
  * synchronization is indicated. If it doesn't match, an error message is printed.
  */
-void Sdr::checkTime(time_spec_t& gps_time){
- gps_time = time_spec_t(
-        int64_t(usrp->get_mboard_sensor("gps_time", 0).to_int()));
+void Sdr::checkAndSetTime(){
+  //set GPS time
+    time_spec_t gps_time = time_spec_t(int64_t(usrp->get_mboard_sensor("gps_time", 0).to_int()));
+    usrp->set_time_next_pps(gps_time + 1.0, 0);
+
+    // Wait for it to apply
+    // The wait is 2 seconds because N-Series has a known issue where
+    // the time at the last PPS does not properly update at the PPS edge
+    // when the time is actually set.
+    this_thread::sleep_for(chrono::seconds(2));
+ gps_time = time_spec_t(int64_t(usrp->get_mboard_sensor("gps_time", 0).to_int()));
     time_spec_t time_last_pps = usrp->get_time_last_pps(0);
     cout << "USRP time: "
               << (boost::format("%0.9f") % time_last_pps.get_real_secs())
@@ -277,7 +274,7 @@ void Sdr::detectChannels(){
 
 void Sdr::setRFParams(){
  // set the RF parameters based on 1 or 2 channel operation
-  if (tx_channel_nums.size() == 1) {
+   if (tx_channel_nums.size() == 1) {
     set_rf_params_single(usrp, rf0, rx_channel_nums, tx_channel_nums);
   } else if (tx_channel_nums.size() == 2) {
     if (!transmit) {

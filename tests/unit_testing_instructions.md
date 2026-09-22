@@ -61,6 +61,17 @@ All test files must include the GTest header with `#include <gtest/gtest.h>` as 
     ...
     gtest_discover_tests(test_<file>)
 
+##### Unit Tests for Hardware Components
+If there are variables that cannot only be tested with software, hardware tests are needed. These are unit tests that only execute when the code is run in hardware. An example of this is setting up the SDR. There are variables in the code that cannot be tested without a hardware connection but still need to be tested. 
+
+To do this, first make sure the functions that are being tested are either public or preferrably in a friend class at the top of the testing file. Then, write normal unit tests as described above. Once the test is written, go into `Makefile` and in the `software-cxx-testing` line, add `-E "<suiteName>"` for all the hardware testing suites that have been created. If `-E` is already there with other testing suites, simply add to the line with your testing suite so it will look like this, 
+
+    -E "<existingSuiteName>|<yourSuiteName>"
+
+Do the same thing as above in the `.github\workflows/unit-tests.yml` file under `name: Run C++ Tests` in the `run:` section after all of the other flags are listed.
+
+This will exclude the hardware tests from running when only the software is run. When running only software tests, run `make software-test`. Then, when hardware is connected, run `make hardware-test` which will run both the software and hardware unit tests.
+
 ###### Example C++ test:
 
     #include <gtest/gtest.h>

@@ -9,7 +9,8 @@ GENERATE:
     window: 'rectangular'            # Window function applied to the chirp
     chirp_length: &chirp_len 10e-6    # [s] chirp length without zero padding
     pulse_length: &pulse_len 10e-6    # [s] total pulse length (chirp + symmetric zero padding)
-    out_file: &ch_sent "data/chirp.bin"   # The name of the output binary file
+    #TODO outfile? data should be changeable
+    out_file: &ch_sent "chirp.bin"   # The name of the output binary file
     show_plot: False                 # Display a time-domain plot of the generated chirp
 
 # ----------------- TX/RX for X310 --------------------- #
@@ -62,10 +63,11 @@ CHIRP:
     phase_dithering: true      
 FILES:
     chirp_loc: *ch_sent                 # Chirp to transmit
-    save_loc: &save_loc "data/rx_samps.bin"  # Save rx data here
-    gps_loc: &gps_save_loc "data/gps_log.txt" # save gps data here (only works if gpsdo is selected as the clock source)
+    output_dir: "data"                   # Directory to save output files to
+    save_loc: &save_loc "rx_samps.bin"  # Save rx data here
+    gps_loc: &gps_save_loc "gps_log.txt" # save gps data here (only works if gpsdo is selected as the clock source)
     max_chirps_per_file: 50000 # Maximum number of RX from a chirp to write to a single file -- set to -1 to avoid breaking into multiple files
 RUN_MANAGER: # These settings are only used by run.py -- not read by main.cpp at all
-    final_save_loc: "data/rx_samps_merged.bin" # specify the save location for the big final file, leave blank if you don't want to save a big file
+    final_save_loc: "rx_samps_merged.bin" # specify the save location for the big final file, leave blank if you don't want to save a big file
     save_partial_files: False # set to true if you want individual small files to be copied, set to false if you just want the big merged file to be copied
     save_gps: False # set to true if using gps and wanting to save gps location data, set to false otherwise

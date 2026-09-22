@@ -1,5 +1,6 @@
 import sys
 import argparse
+import os
 import numpy as np
 import scipy.signal
 import scipy.fft
@@ -93,10 +94,13 @@ def generate_from_yaml_filename(yaml_filename):
     yaml = YAML(typ='safe')
     stream = open(yaml_filename)
     config = yaml.load(stream)
-    output_dir = config['FILES'].get('output_dir', 'data')
-
+    #output_dir = config['FILES'].get('output_dir', 'data')
+    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    output_dir = os.path.join(script_dir, config['FILES'].get('output_dir', 'data'))
+    os.makedirs(output_dir, exist_ok=True)
+    
     # Load some additional paramters needed here
-    filename = config['GENERATE']["out_file"]
+    filename = os.path.join(output_dir, config['GENERATE']["out_file"])
     show_plot = config['GENERATE']['show_plot']
     sample_rate = config['GENERATE']['sample_rate']
 
@@ -170,7 +174,7 @@ def generate_from_yaml_filename(yaml_filename):
 if __name__ == '__main__':
     # Check if a YAML file was provided as a command line argument
     parser = argparse.ArgumentParser()
-    parser.add_argument("yaml_file", nargs='?', default='config/default.yaml',
+    parser.add_argument("yaml_file", nargs='?', default='../config/default.yaml',
             help='Path to YAML configuration file')
     args = parser.parse_args()
 

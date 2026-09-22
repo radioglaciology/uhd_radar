@@ -302,7 +302,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   save_loc = std::filesystem::path(output_dir).string() + "/" + save_loc;
   gps_save_loc = std::filesystem::path(output_dir).string() + "/" + gps_save_loc;
 
-
   // Calculated parameters
 
   tr_off_delay = chirp.getTxDuration() + chirp.getTrOffTrail(); // Time before turning off GPIO
@@ -413,36 +412,41 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   rx_metadata_t rx_md; // Captures metadata from rx_stream->recv() -- specifically primarily timeouts and other errors
 
   float inversion_phase; // Store phase to use for phase inversion of this chirp
-
-  //section 1 start because it breaks it IDK WHY IT BREAKS IT. it makes it so it cant find /data/rx_samps.bin
-  //and idk how because sjkdfkjsdflkjfslkj
   
   //Creating GPS log & vars
-  // printf("Starting GPS code...\n");
-  // using namespace boost::asio;
+  printf("Starting GPS code...\n");
+  using namespace boost::asio;
 
-  // io_service io;
-  // serial_port serial(io);
+  io_service io;
+  serial_port serial(io);
+  bool using_gps = true;
 
-  // printf("Opening serial port...\n");
-  // serial.open("/dev/ttyACM0");  // Adjust if needed for your system
-  // printf("Serial port opened.\n");
-  // serial.set_option(serial_port_base::baud_rate(115200));
-  // serial.set_option(serial_port_base::character_size(8));
-  // serial.set_option(serial_port_base::parity(serial_port_base::parity::none));
-  // serial.set_option(serial_port_base::stop_bits(serial_port_base::stop_bits::one));
-  // serial.set_option(serial_port_base::flow_control(serial_port_base::flow_control::none));
+  // TODO: Consider using a library for working with GPS;
+  try {
+    printf("Opening serial port...\n");
+    serial.open("/dev/ttyACM0");  // Adjust if needed for your system
+  } catch (boost::system::system_error err) {
+    printf("Failed to open GPS.\n");
+    using_gps = false;
+  }
 
-  // // Send UBX commands to configure GPS
-  // configureRate(serial, 3);              // 3 Hz update rate
-  // configureNMEAMessages(serial, 1);      // Enable only GGA
+  if (using_gps) {
+    printf("Serial port opened.\n");
+    serial.set_option(serial_port_base::baud_rate(115200));
+    serial.set_option(serial_port_base::character_size(8));
+    serial.set_option(serial_port_base::parity(serial_port_base::parity::none));
+    serial.set_option(serial_port_base::stop_bits(serial_port_base::stop_bits::one));
+    serial.set_option(serial_port_base::flow_control(serial_port_base::flow_control::none));
+    
+    // Send UBX commands to configure GPS
+    configureRate(serial, 3);              // 3 Hz update rate
+    configureNMEAMessages(serial, 1);      // Enable only GGA
+  }
 
-  // ofstream gps_output("gps_log.txt");
+  ofstream gps_output("gps_log.txt");
 
-  // std::string line;
-  // char c; 
-
-  //section 1 end
+  std::string line;
+  char c; 
 
   // Note: This print statement is used by automated post-processing code. Please be careful about changing the format.
   cout << "[START] Beginning main loop" << endl;
@@ -456,11 +460,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     // Check if we have a full sample_sum ready to write to file
     if (!checkForFullSampleSum(chirp, sample_sum, outfile)) {exit(1);};
 
-//TODO: if this code below is not commented, then the chirp won't work and go to the spec 
-// analyzer so it needs to be edited
-/*
-// Our GPS method (below commented GPS from old version)
-    if (((pulses_received % 2000) == 0) && (sdr.getClkRef() == "gpsdo")) {
+
+    // Our GPS method (below commented GPS from old version)
+    if (using_gps && ((pulses_received % 2000) == 0) && (sdr.getClkRef() == "gpsdo")) {
       read(serial, buffer(&c, 1));
       if (c == '\n') {
           if (line.find("$GNGGA") == 0) {
@@ -511,8 +513,6 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
           line += c;
       }
     }
-      */
-
 
 
     // get gps data

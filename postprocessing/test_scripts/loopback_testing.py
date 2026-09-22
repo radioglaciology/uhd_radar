@@ -1,11 +1,13 @@
 import numpy as np
+import sys
+sys.path.append("postprocessing")
 import processing
 import matplotlib.pyplot as plt
 import os
-import sys
 import scipy.signal as sp
-sys.path.append("../preprocessing")
+sys.path.append("preprocessing")
 from generate_chirp import generate_chirp
+
 
 def load_data(prefix):
     """
@@ -100,8 +102,10 @@ def plot_matched(matched, sample_rate, tx=None, velocity_factor=2/3, loopback=Tr
         ranges = time * v / 2.0
 
     v = 2/3 * 299792458
-    expected_idx = int(50 / v * sample_rate + len(tx) - 1)
-    print("Expected sample index for 50 m:", expected_idx)
+    #Change this variable if your cable isn't 50 meters
+    cable_length = 50
+    expected_idx = int(cable_length / v * sample_rate + len(tx) - 1)
+    print("Expected sample index for", cable_length, "m:", expected_idx)
 
     mask = ranges >= 0
     magnitude = magnitude[mask]
@@ -141,14 +145,16 @@ def compress(stacked, chirp, sample_rate):
     fast_time, x = processing.pulse_compress(stacked, chirp, sample_rate)
     return fast_time, x
 
-def main():
+def main(prefix):
     #prefix = "../../data/20260219_202834"
     #prefix = "../../data/20260218_233213"
     slowtime, sample_rate, rx = load_data(prefix)
     _, chirp = generate_chirp(processing.load_config(prefix))
     #plot_chirp(chirp, sample_rate)
-    stacked = stack(rx, 1000000) # initial stack to reduce size of rx 
+    stacked = stack(rx, len(rx)) # initial stack to reduce size of rx 
     matched = matched_filter(stacked, chirp)
+
+    #Change your coax_length to the length of your cable
     plot_matched(matched, sample_rate, tx=chirp, velocity_factor=2/3, loopback=True, coax_length=50)
     plot_raw_matched(matched, sample_rate, tx=chirp)
     plot_compress(rx, chirp, sample_rate)

@@ -1,5 +1,7 @@
 from ruamel.yaml import YAML
-from preprocessing.generate_chirp import generate_chirp
+import sys
+sys.path.append("preprocessing")
+from generate_chirp import generate_chirp
 from pathlib import Path
 
 '''

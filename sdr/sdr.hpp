@@ -54,10 +54,11 @@ class Sdr {
     vector<size_t>& getRxChannelNums();
 
   private:
+    friend class SdrHwTest;
     void loadConfigFromYaml(const string& kYamlFile);
     void check10MhzLock();
-    void gpsLockAndTime();
-    void checkTime(time_spec_t& gps_time);
+    void gpsLock();
+    void checkAndSetTime();
     void detectChannels();
     void setRFParams();
     void refLoLockDetect();
