@@ -346,7 +346,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   //////////////////////////////////////////////////////////////////////////////////////////
 
   /*** FILE WRITE SETUP ***/
-  boost::asio::io_service ioservice;
+  boost::asio::io_context ioservice;
   if (save_loc[0] != '/') {
     save_loc = "../../" + save_loc;
   }
@@ -417,7 +417,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   printf("Starting GPS code...\n");
   using namespace boost::asio;
 
-  io_service io;
+  io_context io;
   serial_port serial(io);
   bool using_gps = true;
 

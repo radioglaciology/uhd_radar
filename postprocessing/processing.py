@@ -73,18 +73,18 @@ def load_radar_data(prefix, load_start_seconds=0, max_seconds_to_load=60*100, ma
         
         for idx, line in enumerate(log):
             if "Receiver error:" in line:
-                error_code = re.search("(?:Receiver error: )([\w_]+)", line).groups()[0]
-                old_style_regex_search = re.search("(?:Scheduling chirp )([\d]+)", log[idx-1])
+                error_code = re.search(r"(?:Receiver error: )([\w_]+)", line).groups()[0]
+                old_style_regex_search = re.search(r"(?:Scheduling chirp )([\d]+)", log[idx-1])
                 if old_style_regex_search is not None:
-                    chirp_idx = int(re.search("(?:Scheduling chirp )([\d]+)", log[idx-1]).groups()[0])
+                    chirp_idx = int(re.search(r"(?:Scheduling chirp )([\d]+)", log[idx-1]).groups()[0])
                 else:
-                    chirp_idx = int(re.search("(?:Chirp )([\d]+)", line).groups()[0])
+                    chirp_idx = int(re.search(r"(?:Chirp )([\d]+)", line).groups()[0])
                 errors[chirp_idx] = error_code
                 if error_code != "ERROR_CODE_LATE_COMMAND":
                     print(f"WARNING: Uncommon error in the log: {error_code} (on chirp {chirp_idx})")
                     print(f"Full message: {line}")
             if ("[START]" in line) or ("Scheduling chirp 0 RX" in line):
-                start_timestamp = float(re.search("(?:\[)([\d]+\.[\d]+)", line).groups()[0])
+                start_timestamp = float(re.search(r"(?:\[)([\d]+\.[\d]+)", line).groups()[0])
     else:
         print(f"WARNING: No log file found. This is fine, but checks for error codes will be disabled.")
         print(f"(Looking for a log file in: {log_file})")
@@ -296,8 +296,8 @@ def extractErrorsFromLog(log_file, raise_exception=False):
         
         for idx, line in enumerate(log):
             if "Receiver error:" in line:
-                error_code = re.search("(?:Receiver error: )([\w_]+)", line).groups()[0]
-                chirp_idx = int(re.search("(?:Scheduling chirp )([\d]+)", log[idx-1]).groups()[0])
+                error_code = re.search(r"(?:Receiver error: )([\w_]+)", line).groups()[0]
+                chirp_idx = int(re.search(r"(?:Scheduling chirp )([\d]+)", log[idx-1]).groups()[0])
                 errors[chirp_idx] = error_code
                 if error_code != "ERROR_CODE_LATE_COMMAND":
                     print(f"WARNING: Uncommon error in the log: {error_code} (on chirp {chirp_idx})")
