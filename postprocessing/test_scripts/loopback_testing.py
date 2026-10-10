@@ -69,15 +69,12 @@ def plot_raw_matched(matched, sample_rate, tx):
 
 def second_parabola_peak(ranges, magnitude, expected_idx=20):
     # comparing the earlier points to the later points
-    # maybe edit it so instead of going to 20 it goes until the estimated 
 
     for i in range(0, expected_idx+5, 1): #5 is just a random amount of extra
         for j in range (i+1, expected_idx+5, 1):
             if magnitude[j] >= magnitude[i]: #if the compared magnitude is larger than the initial
                 largest_range = ranges[j]
                 largest_magnitude = magnitude[j]
-                print("comparison", magnitude[i], "larger", magnitude[j])
-                plt.plot(largest_range, largest_magnitude, 'ko')
                 start_index = j
                 parabola_range = []
                 parabola_magnitude = []
@@ -95,7 +92,6 @@ def second_parabola_peak(ranges, magnitude, expected_idx=20):
 
                 # if only one point was gathered before the peak, go back and try and get another
                 while(counter_up < 3):
-                    print("adding additional earlier values")
                     # is the value before the starting index lower
                     if (magnitude[start_index-1] < magnitude[start_index]):
                         parabola_range.insert(0,ranges[start_index-1])
@@ -105,14 +101,10 @@ def second_parabola_peak(ranges, magnitude, expected_idx=20):
 
                 # now getting points after the peak
                 while((magnitude[j] < magnitude[j-1]) & (counter_down < 3)):
-                    print("j is", j)
-                    print("magnitude", magnitude[j])
-                    print("magnitude of previous", magnitude[j-1])
                     parabola_range.append(ranges[j])
                     parabola_magnitude.append(magnitude[j])
                     j += 1
                     counter_down += 1
-                print("length of the two parabola", len(parabola_range), len(parabola_magnitude))
                 
                 #plotting the gathered points 
                 plt.plot(parabola_range, parabola_magnitude, 'go')
@@ -124,17 +116,11 @@ def second_parabola_peak(ranges, magnitude, expected_idx=20):
                     return
                 z = np.poly1d(p)
                 xaxis = np.linspace(parabola_range[0], parabola_range[-1],50)
-                plt.axvline(xaxis[0], color='g', linestyle='--', label=f"left border {xaxis[0]}")
-                plt.axvline(xaxis[49], color='g', linestyle='--', label=f"right border{xaxis[49]}")
                 plt.plot(xaxis, z(xaxis), "g--")
 
                 # Get derivative of parabola, returns another polynomial coeffecients
                 p_derivative = np.polyder(p)
-                print("p derive", p_derivative)
-                z_derivative = np.poly1d(p_derivative)
-                plt.plot(xaxis, z_derivative(xaxis), 'r-')
-                p_root = np.roots(p_derivative) #returns the roots, there should only be 1
-                print("Roots", p_root) 
+                p_root = np.roots(p_derivative) #returns the roots, there should only be 1print("Roots", p_root) 
                 plt.plot(p_root, z(p_root), 'ro', label=f'2nd parabola peak: {p_root[0]:.1f} m')
                 print(f"Second parabola peak: {p_root[0]:.3f} m")
         
@@ -191,12 +177,7 @@ def plot_matched(matched, sample_rate, tx=None, velocity_factor=2/3, loopback=Tr
     plt.title("Matched Filter")
     plt.xlabel("Distance (meters)")
     plt.ylabel("Normalized Amplitude")
-    plt.grid()
-
-    # printing information 
-    print("shape of ranges", np.shape(ranges), "shape of magnitude", np.shape(magnitude))
-    for i in range(0,10,1):
-        plt.plot(ranges[i], magnitude[i], 'bo')    
+    plt.grid()   
 
     second_parabola_peak(ranges, magnitude, expected_idx)   
 
