@@ -83,10 +83,35 @@ def second_parabola_peak(ranges, magnitude, expected_idx=20):
                 parabola_magnitude = []
 
                 # gather the points around the hypothetical peak to make a parabola, 8 is a random number    
-                for k in range(1, 8, 1):
+                counter_up = 1
+                counter_down = 1
+
+                # gather points that are rising before the peak 
+                while(magnitude[j] > magnitude[j-1]):
                     parabola_range.append(ranges[j])
                     parabola_magnitude.append(magnitude[j])
                     j += 1
+                    counter_up += 1
+
+                # if only one point was gathered before the peak, go back and try and get another
+                while(counter_up < 3):
+                    print("adding additional earlier values")
+                    # is the value before the starting index lower
+                    if (magnitude[start_index-1] < magnitude[start_index]):
+                        parabola_range.insert(0,ranges[start_index-1])
+                        parabola_magnitude.insert(0,magnitude[start_index-1])
+                        counter_up += 1
+                    else: break
+
+                # now getting points after the peak
+                while((magnitude[j] < magnitude[j-1]) & (counter_down < 3)):
+                    print("j is", j)
+                    print("magnitude", magnitude[j])
+                    print("magnitude of previous", magnitude[j-1])
+                    parabola_range.append(ranges[j])
+                    parabola_magnitude.append(magnitude[j])
+                    j += 1
+                    counter_down += 1
                 print("length of the two parabola", len(parabola_range), len(parabola_magnitude))
                 
                 #plotting the gathered points 
@@ -98,7 +123,7 @@ def second_parabola_peak(ranges, magnitude, expected_idx=20):
                     print("Second parabola peak did not calculate properly")
                     return
                 z = np.poly1d(p)
-                xaxis = np.linspace(ranges[start_index], ranges[start_index+6],50)
+                xaxis = np.linspace(parabola_range[0], parabola_range[-1],50)
                 plt.axvline(xaxis[0], color='g', linestyle='--', label=f"left border {xaxis[0]}")
                 plt.axvline(xaxis[49], color='g', linestyle='--', label=f"right border{xaxis[49]}")
                 plt.plot(xaxis, z(xaxis), "g--")
