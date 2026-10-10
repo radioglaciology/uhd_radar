@@ -67,6 +67,55 @@ def plot_raw_matched(matched, sample_rate, tx):
     plt.grid()
     plt.show()
 
+def second_parabola_peak(ranges, magnitude, expected_idx=20):
+    # comparing the earlier points to the later points
+    # maybe edit it so instead of going to 20 it goes until the estimated 
+
+    for i in range(0, expected_idx+5, 1): #5 is just a random amount of extra
+        for j in range (i+1, expected_idx+5, 1):
+            if magnitude[j] >= magnitude[i]: #if the compared magnitude is larger than the initial
+                largest_range = ranges[j]
+                largest_magnitude = magnitude[j]
+                print("comparison", magnitude[i], "larger", magnitude[j])
+                plt.plot(largest_range, largest_magnitude, 'ko')
+                start_index = j
+                parabola_range = []
+                parabola_magnitude = []
+
+                # gather the points around the hypothetical peak to make a parabola, 8 is a random number    
+                for k in range(1, 8, 1):
+                    parabola_range.append(ranges[j])
+                    parabola_magnitude.append(magnitude[j])
+                    j += 1
+                print("length of the two parabola", len(parabola_range), len(parabola_magnitude))
+                
+                #plotting the gathered points 
+                plt.plot(parabola_range, parabola_magnitude, 'go')
+                # Creating the parabola and printing it on the plot
+                p = np.polyfit(parabola_range, parabola_magnitude, 2)
+                print("print p", p)
+                if(p[0] >= 0):
+                    print("Second parabola peak did not calculate properly")
+                    return
+                z = np.poly1d(p)
+                xaxis = np.linspace(ranges[start_index], ranges[start_index+6],50)
+                plt.axvline(xaxis[0], color='g', linestyle='--', label=f"left border {xaxis[0]}")
+                plt.axvline(xaxis[49], color='g', linestyle='--', label=f"right border{xaxis[49]}")
+                plt.plot(xaxis, z(xaxis), "g--")
+
+                # Get derivative of parabola, returns another polynomial coeffecients
+                p_derivative = np.polyder(p)
+                print("p derive", p_derivative)
+                z_derivative = np.poly1d(p_derivative)
+                plt.plot(xaxis, z_derivative(xaxis), 'r-')
+                p_root = np.roots(p_derivative) #returns the roots, there should only be 1
+                print("Roots", p_root) 
+                plt.plot(p_root, z(p_root), 'ro', label=f'2nd parabola peak: {p_root[0]:.1f} m')
+                print(f"Second parabola peak: {p_root[0]:.3f} m")
+        
+                return 
+                
+
 def plot_matched(matched, sample_rate, tx=None, velocity_factor=2/3, loopback=True, coax_length=None, zero_sample_idx=159):
     """Plot matched filter output with physical distance scaling.
 
@@ -104,7 +153,7 @@ def plot_matched(matched, sample_rate, tx=None, velocity_factor=2/3, loopback=Tr
     v = 2/3 * 299792458
     #Change this variable if your cable isn't 50 meters
     cable_length = 50
-    expected_idx = int(cable_length / v * sample_rate + len(tx) - 1)
+    expected_idx = int(cable_length / v * sample_rate)
     print("Expected sample index for", cable_length, "m:", expected_idx)
 
     mask = ranges >= 0
@@ -122,69 +171,16 @@ def plot_matched(matched, sample_rate, tx=None, velocity_factor=2/3, loopback=Tr
     # printing information 
     print("shape of ranges", np.shape(ranges), "shape of magnitude", np.shape(magnitude))
     for i in range(0,10,1):
-        plt.plot(ranges[i], magnitude[i], 'bo')
+        plt.plot(ranges[i], magnitude[i], 'bo')    
 
-
-    # comparing the earlier points to the later points
-    # maybe edit it so instead of going to 20 it goes until the estimated 
-    # also make it a function later
-
-    keep_going = True
-    for i in range(0, 20, 1):
-        if(keep_going):
-            for j in range (i+1, 20, 1):
-                if(keep_going):
-                    if magnitude[j] >= magnitude[i]:
-                        largest_range = ranges[j]
-                        largest_magnitude = magnitude[j]
-                        print("comparison", magnitude[i], "larger", magnitude[j])
-                        plt.plot(largest_range, largest_magnitude, 'go')
-                        start_index = j
-                        parabola_range = []
-                        parabola_magnitude = []
-
-                        # gather the points around the hypothetical peak to make a parabola    
-                        for k in range(1, 8, 1):
-                           parabola_range.append(ranges[j])
-                           parabola_magnitude.append(magnitude[j])
-                           j += 1
-                        print("length of the two parabola", len(parabola_range), len(parabola_magnitude))
-                        
-                        #plotting the gathered points 
-                        plt.plot(parabola_range, parabola_magnitude, 'go')
-                        # Creating the parabola and printing it on the plot
-                        p = np.polyfit(parabola_range, parabola_magnitude, 2)
-                        print("print p", p)
-                        z = np.poly1d(p)
-                        xaxis = np.linspace(ranges[start_index], ranges[start_index+6],50)
-                        plt.axvline(xaxis[0], color='g', linestyle='--', label=f"left border {xaxis[0]}")
-                        plt.axvline(xaxis[49], color='g', linestyle='--', label=f"right border{xaxis[49]}")
-                        plt.plot(xaxis, z(xaxis), "g--")
-
-                        # get derivative of parabola, returns another polynomial coeffecients
-                        p_derivative = np.polyder(p)
-                        print("p derive", p_derivative)
-                        z_derivative = np.poly1d(p_derivative)
-                        plt.plot(xaxis, z_derivative(xaxis), 'r-')
-                        p_root = np.roots(p_derivative) #returns the roots
-                        print("roots", p_root)
-                        plt.plot(p_root, z(p_root), 'ro', label=f'2nd parabola peak: {p_root[0]:.1f} m')
-
-                        
-                        keep_going = False
-                        break
-                else: break
-        else: break        
-
-
-    
+    second_parabola_peak(ranges, magnitude, expected_idx)   
 
     # If expected physical length is provided, mark it on the plot
     if coax_length is not None:
         expected_time = coax_length / v
         expected_sample = expected_time * sample_rate + delay_offset
         expected_range = coax_length
-        plt.axvline(expected_range, color='g', linestyle='--', label=f"expected {coax_length} m")
+        plt.axvline(expected_range, color='r', linestyle='--', label=f"expected {coax_length} m")
 
         # Diagnostics: find the received peak and suggest a velocity_factor correction
         peak_idx = np.argmax(magnitude)
@@ -198,7 +194,7 @@ def plot_matched(matched, sample_rate, tx=None, velocity_factor=2/3, loopback=Tr
         # Annotate peak and suggested correction on the plot
         plt.plot([measured_range], [magnitude[peak_idx]], 'ko', label=f'measured peak: {measured_range:.1f} m')
         plt.legend()
-
+    
     plt.show()
 
 def compress(stacked, chirp, sample_rate):
