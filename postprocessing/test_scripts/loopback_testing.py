@@ -68,29 +68,29 @@ def plot_raw_matched(matched, sample_rate, tx):
     plt.show()
 
 def second_parabola_peak(ranges, magnitude, expected_idx=20):
-    # comparing the earlier points to the later points
+    # Comparing the earlier points to the later points
 
     for i in range(0, expected_idx+5, 1): #5 is just a random amount of extra
         for j in range (i+1, expected_idx+5, 1):
-            if magnitude[j] >= magnitude[i]: #if the compared magnitude is larger than the initial
+            if magnitude[j] >= magnitude[i]: # If the compared magnitude is larger than the initial
                 largest_range = ranges[j]
                 largest_magnitude = magnitude[j]
                 start_index = j
                 parabola_range = []
                 parabola_magnitude = []
 
-                # gather the points around the hypothetical peak to make a parabola, 8 is a random number    
+                # Gather the points around the hypothetical peak to make a parabola, 8 is a random number    
                 counter_up = 1
                 counter_down = 1
 
-                # gather points that are rising before the peak 
+                # Gather points that are rising before the peak 
                 while(magnitude[j] > magnitude[j-1]):
                     parabola_range.append(ranges[j])
                     parabola_magnitude.append(magnitude[j])
                     j += 1
                     counter_up += 1
 
-                # if only one point was gathered before the peak, go back and try and get another
+                # If only one point was gathered before the peak, go back and try and get another
                 while(counter_up < 3):
                     # is the value before the starting index lower
                     if (magnitude[start_index-1] < magnitude[start_index]):
@@ -99,14 +99,14 @@ def second_parabola_peak(ranges, magnitude, expected_idx=20):
                         counter_up += 1
                     else: break
 
-                # now getting points after the peak
+                # Now getting points after the peak
                 while((magnitude[j] < magnitude[j-1]) & (counter_down < 3)):
                     parabola_range.append(ranges[j])
                     parabola_magnitude.append(magnitude[j])
                     j += 1
                     counter_down += 1
                 
-                #plotting the gathered points 
+                # Plotting the gathered points 
                 plt.plot(parabola_range, parabola_magnitude, 'go')
                 # Creating the parabola and printing it on the plot 
                 # (it is printed but since it overlaps with the original function it's hard to see)
@@ -121,7 +121,7 @@ def second_parabola_peak(ranges, magnitude, expected_idx=20):
 
                 # Get derivative of parabola, returns another polynomial coefficients
                 p_derivative = np.polyder(p)
-                p_root = np.roots(p_derivative) #returns the roots, there should only be 1print("Roots", p_root) 
+                p_root = np.roots(p_derivative) # Returns the roots, there should only be 1print("Roots", p_root) 
                 plt.plot(p_root, z(p_root), 'ro', label=f'2nd parabola peak: {p_root[0]:.1f} m')
                 print(f"Second parabola peak: {p_root[0]:.3f} m")
         
