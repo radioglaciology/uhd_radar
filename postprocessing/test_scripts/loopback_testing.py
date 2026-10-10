@@ -108,7 +108,8 @@ def second_parabola_peak(ranges, magnitude, expected_idx=20):
                 
                 #plotting the gathered points 
                 plt.plot(parabola_range, parabola_magnitude, 'go')
-                # Creating the parabola and printing it on the plot
+                # Creating the parabola and printing it on the plot 
+                # (it is printed but since it overlaps with the original function it's hard to see)
                 p = np.polyfit(parabola_range, parabola_magnitude, 2)
                 print("print p", p)
                 if(p[0] >= 0):
@@ -118,7 +119,7 @@ def second_parabola_peak(ranges, magnitude, expected_idx=20):
                 xaxis = np.linspace(parabola_range[0], parabola_range[-1],50)
                 plt.plot(xaxis, z(xaxis), "g--")
 
-                # Get derivative of parabola, returns another polynomial coeffecients
+                # Get derivative of parabola, returns another polynomial coefficients
                 p_derivative = np.polyder(p)
                 p_root = np.roots(p_derivative) #returns the roots, there should only be 1print("Roots", p_root) 
                 plt.plot(p_root, z(p_root), 'ro', label=f'2nd parabola peak: {p_root[0]:.1f} m')
