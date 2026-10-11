@@ -5,6 +5,10 @@ import re
 import os
 
 if __name__ == "__main__":
+    '''
+    Takes prefix of split rx_samps files like "data/20230713" and will combine them into one 
+    large _rx_samps.bin file provided that there is not a file with the same name. 
+    '''                                                                     
     # Accept one command line argument, a string called prefix
     parser = argparse.ArgumentParser()
     parser.add_argument("prefix", 
