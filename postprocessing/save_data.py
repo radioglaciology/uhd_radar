@@ -50,6 +50,10 @@ def save_data(yaml_filename, extra_files={}, alternative_rx_samps_loc=None, num_
     return file_prefix
 
 if __name__ == "__main__":
+    '''
+    When the file is run with a config file, it will parse the information and run the save
+    data function.  
+    '''
     # Check if a YAML file was provided as a command line argument
     parser = argparse.ArgumentParser()
     parser.add_argument("yaml_file", nargs='?', default='config/default.yaml',
