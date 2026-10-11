@@ -51,8 +51,8 @@ def save_data(yaml_filename, extra_files={}, alternative_rx_samps_loc=None, num_
 
 if __name__ == "__main__":
     '''
-    When the file is run with a config file, it will parse the information and run the save
-    data function.  
+    When the file is run with a config file, it will run the save data function with information 
+    from the given file. If no config file is specified, the config file used is default.yaml.  
     '''
     # Check if a YAML file was provided as a command line argument
     parser = argparse.ArgumentParser()
