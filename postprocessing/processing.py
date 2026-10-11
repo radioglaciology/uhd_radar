@@ -6,6 +6,10 @@ import re
 from ruamel.yaml import YAML as ym
 
 def load_config(prefix, modifications = {}):
+    '''
+    Opens the config file so you're able to access it by the subcategory and specific items.
+    For example config[FILES][output_dir] gets the directory to save the data files.
+    '''
     # By default, assume this is just the prefix and add "_config.yaml"
     # but if it already ends with ".yaml", skip this
     if not prefix.endswith(".yaml"):
