@@ -14,6 +14,13 @@ yaml_filename = args.yaml_file
 second_filename = args.second_file
 third_filename = args.third_file
 
+if(yaml_filename == None):
+    print("Missing the first config file")
+if(second_filename == None):
+    print("Missing the second config file")
+if(third_filename == None):
+    print("Missing the third config file")
+
 print("first file is", yaml_filename)
 print("second file is", second_filename)
 print("third file is", third_filename)
@@ -25,21 +32,22 @@ runner3 = RadarProcessRunner(third_filename)
 def sigint_handler(signum, frame):
     runner.stop() # On Ctrl-C, attempt to stop radar process
 
-print("Start setup for first")
+print("START SETUP FOR FIRST")
 runner.setup()
+print("First setup complete")
 runner.run()
 signal.signal(signal.SIGINT, sigint_handler)
 runner.wait()
 runner.stop()
 
-print("Start setup for second")
+print("START SETUP FOR SECOND")
 runner2.setup()
 runner2.run()
 signal.signal(signal.SIGINT, sigint_handler)
 runner2.wait()
 runner2.stop()
 
-print("Start setup for third")
+print("START SETUP FOR THIRD")
 runner3.setup()
 runner3.run()
 signal.signal(signal.SIGINT, sigint_handler)
