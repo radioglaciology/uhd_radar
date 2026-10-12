@@ -1,7 +1,6 @@
 from run import RadarProcessRunner
 import argparse
 import signal
-import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument("yaml_file", nargs='?',
@@ -17,13 +16,13 @@ third_filename = args.third_file
 
 if(yaml_filename == None):
     print("Missing the first config file")
-    sys.exit
+    exit(1)
 if(second_filename == None):
     print("Missing the second config file")
-    sys.exit
+    exit(1)
 if(third_filename == None):
     print("Missing the third config file")
-    sys.exit
+    exit(1)
 
 
 print("first file is", yaml_filename)
