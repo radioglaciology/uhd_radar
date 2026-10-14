@@ -3,24 +3,31 @@ import matplotlib.pyplot as plt
 import warnings
 from ruamel.yaml import YAML
 import argparse
+import re
+
+
+line = "data/20261014_165819_f1000e6_config.yaml"
+searched = re.search(r'\d+_\d+_f\d+e6', line)
+print(searched)
+print(searched.group(0))
 
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("yaml_file", nargs='?',
-    help='First file') #searching for yaml file that is in one line but none default to default
-parser.add_argument("second_file", nargs='?',
-    help="second file?")
-parser.add_argument("third_file", nargs='?',
-    help="third file?")
-args = parser.parse_args() 
-yaml_filename = args.yaml_file
-second_filename = args.second_file
-third_filename = args.third_file
+# parser = argparse.ArgumentParser()
+# parser.add_argument("yaml_file", nargs='?',
+#     help='First file') #searching for yaml file that is in one line but none default to default
+# parser.add_argument("second_file", nargs='?',
+#     help="second file?")
+# parser.add_argument("third_file", nargs='?',
+#     help="third file?")
+# args = parser.parse_args() 
+# yaml_filename = args.yaml_file
+# second_filename = args.second_file
+# third_filename = args.third_file
 
-print("first file is", yaml_filename)
-print("second file is", second_filename)
-print("third file is", third_filename)
+# print("first file is", yaml_filename)
+# print("second file is", second_filename)
+# print("third file is", third_filename)
 
 
 
