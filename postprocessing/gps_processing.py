@@ -4,6 +4,10 @@ import re
 import pandas as pd
 
 def parse_line(line):
+    '''
+    From a string of gps information, this will parse out unix_time, lat, lon, alt, 
+    altMSL, ecefx, ecefy, and ecefz information and return it.
+    '''
     # Regex to extract UNIX time (e.g., 1764000892.487560)
     unix_time_match = re.search(r'(\d+\.\d+)', line)
     if not unix_time_match:
@@ -42,6 +46,11 @@ def parse_line(line):
     }
 
 def extract_locations_from_gpspipe(lines):
+    '''
+    From a series of lines seperated by a newline, if TPV is in a line, the parse_line function
+    is run. If results are returned, it is added to a list of dictionaries. The list is then converted
+    to DataFrame and returned. It can also be converted to a CSV if a line is uncommented. 
+    '''
     results = []
 
     for line in lines.split("\n"):
