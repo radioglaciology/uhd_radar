@@ -32,7 +32,9 @@ def load_config(prefix, modifications = {}):
 def load_radar_data(prefix, load_start_seconds=0, max_seconds_to_load=60*100, max_chunk_size_samples=int(2e8), error_behavior=None, debug=False):
     '''
     This is an older version of loading radar data. If loading large files, use the functions in 
-    processing_dask. This function returns 3 things. 
+    processing_dask. This function can handle errors (typically ERROR_CODE_LATE_COMMAND) and how
+    the program deals with the errors changes based on what error_behavior is set to. This 
+    function returns 3 things. 
     1. A list called slow_time which is timing associated with pulse samples. 
     2. The sample rate pulled from the config file.
     3. The reshaped received data. It is a 2D array where each column is the data from 1 pulse.
