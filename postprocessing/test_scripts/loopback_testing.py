@@ -59,6 +59,10 @@ def stack(rx, n):
     return processing.stack(rx, n)
 
 def plot_raw_matched(matched, sample_rate, tx):
+    '''
+    This function creates a raw matched data vs samples plot. The x axis is not time or distance.
+    The raw data is units are dB.
+    '''
     # on x,y plot
     plt.plot(20*np.log10(np.abs(np.sum(matched, axis=1))))
     plt.title("Raw Matched Filter Output")
@@ -215,6 +219,10 @@ def compress(stacked, chirp, sample_rate):
     return fast_time, x
 
 def main(prefix):
+    '''
+    Given a file prefix, this will plot the matched filtered data, the raw data, and the
+    compressed signal. 
+    '''
     #prefix = "../../data/20260219_202834"
     #prefix = "../../data/20260218_233213"
     slowtime, sample_rate, rx = load_data(prefix)
