@@ -7,7 +7,13 @@ import processing as pr
 import matplotlib.pyplot as plt
 from ruamel.yaml import YAML as ym
 import os
+import re
 
+'''
+This is an older function to plot the samples on a power vs time graph. This function does
+not take into account the delay from when the transmitter starts to when the receiver
+starts receiving data which makes it less accurate. 
+'''
 
 
 # Check if a YAML file was provided as a command line argument
@@ -18,7 +24,10 @@ parser.add_argument("yaml_file", nargs='?', default='config/default.yaml',
 args = parser.parse_args()
 
 str_arg = str(args.yaml_file)
-timestamp = str_arg[5:20]
+timestamp_search = re.search(r'\d+_\d+_f\d+e6', str_arg)
+if not(timestamp_search):
+    timestamp_search = re.search(r'\d+_\d+', str_arg)
+timestamp = timestamp_search.group(0)
 
 
 # Initialize Constants
