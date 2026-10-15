@@ -68,6 +68,12 @@ def plot_raw_matched(matched, sample_rate, tx):
     plt.show()
 
 def second_parabola_peak(ranges, magnitude, expected_idx=20):
+    '''
+    The goal of this function is to get the peak of the data that isn't immediately at 0 due to
+    noise. This works best with blackman windows because it is the smoothest. With rectangular
+    windows there is a lot of noise in the beginning so this function still isn't able to 
+    correctly identify the peak from a loopback test. 
+    '''
     # Comparing the earlier points to the later points
 
     for i in range(0, expected_idx+5, 1): #5 is just a random amount of extra
