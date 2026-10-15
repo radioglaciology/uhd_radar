@@ -1,5 +1,6 @@
 import loopback_testing as lt
 import argparse
+import re
 import sys
 
 sys.path.append('postprocessing')
@@ -11,7 +12,6 @@ from ruamel.yaml import YAML as ym
 parser = argparse.ArgumentParser()
 parser.add_argument("yaml_file", nargs='?', default='config/default.yaml',
         help='Path to YAML configuration file')
-
 args = parser.parse_args()
 
 str_arg = str(args.yaml_file)
@@ -19,8 +19,12 @@ print("original string is:", str_arg)
 #This code takes the timestamp from the "data/yyyymmdd_hhmmss_config.yaml" string
 #If your output_dir isn't data/isn't 4 letters long, then edit the two indices below to line up with
 #the timestamp
-timestamp = str_arg[5:20]
-print("timestamp is:", timestamp)
+timestamp_search = re.search(r'\d+_\d+_f\d+e6', str_arg)
+if not(timestamp_search):
+    timestamp_search = re.search(r'\d+_\d+', str_arg)
+timestamp = timestamp_search.group(0)
+
+print("Prefix is:", timestamp)
 
 # Initialize Constants
 yaml = ym()                         # Always use safe load if not dumping
@@ -46,8 +50,8 @@ with open(args.yaml_file) as stream:
    print(rx_sig.shape)
    print(tx_sig.shape)
 
-   lt.plot_chirp(tx_sig, sample_rate)
-   print("Plotting chirp")
+#    lt.plot_chirp(tx_sig, sample_rate)
+#    print("Plotting chirp")
 
    print("running main") #Chris' loopback_testing code 
    lt.main(prefix)
