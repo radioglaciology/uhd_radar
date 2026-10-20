@@ -77,7 +77,7 @@ void configureNMEAMessages(serial_port& serial, uint8_t ggaRate) {
 int main() {
     printf("Starting GPS code...\n");
 
-    io_service io;
+    io_context io;
     serial_port serial(io);
 
     try {

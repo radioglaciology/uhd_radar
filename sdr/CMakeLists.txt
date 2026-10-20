@@ -39,7 +39,6 @@ find_package(yaml-cpp REQUIRED)
 # Set components here, then include UHDBoost to do the actual finding
 set(UHD_BOOST_REQUIRED_COMPONENTS
     program_options
-    system
     thread
     filesystem
     chrono

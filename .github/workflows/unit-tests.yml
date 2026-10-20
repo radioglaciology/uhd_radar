@@ -16,21 +16,20 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2
         with:
           environment-file: environment-rpi.yaml
-          activate-environment: uhd
+          activate-environment: orca
           auto-activate-base: false
-          python-version: 3.11.13
 
       - name: Cache Conda Environment
         uses: actions/cache@v3
         with:
-          path: /home/runner/miniconda3/envs/uhd
+          path: /home/runner/miniconda3/envs/orca
           key: conda-env-full-${{ runner.os }}-${{ hashFiles('environment-rpi.yaml') }}-pytest
           restore-keys: |
             conda-env-full-${{ runner.os }}-
 
       - name: Install Dependencies
         run: |
-          conda run -n uhd python -c "import pytest" || conda run -n uhd conda install -y pytest
+          conda run -n orca python -c "import pytest" || conda run -n orca conda install -y pytest
           sudo apt-get update && sudo apt-get install -y cmake g++ libboost-all-dev libuhd-dev uhd-host
 
       - name: Build and Install yaml-cpp
@@ -48,7 +47,7 @@ jobs:
           cmake --build build
 
       - name: Run Python Tests
-        run: conda run -n uhd bash -c "PYTHONPATH=. pytest tests/"
+        run: conda run -n orca bash -c "PYTHONPATH=. pytest tests/"
 
       - name: Run C++ Tests
         run: ctest --test-dir build --output-on-failure --extra-verbose -E "gpsLock|check10MhzLock|checkAndSetTime|detectChannels|setRFParams|refLoLockDetect|setupGpio"

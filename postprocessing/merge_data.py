@@ -17,7 +17,7 @@ if __name__ == "__main__":
     files = glob.glob(path, recursive=False)
     file_ordering = {}
     for filename in files:
-        filename_search = re.search('\d{8}_\d{6}_p(\d+)_rx_samps.bin', filename)
+        filename_search = re.search(r'\d{8}_\d{6}_p(\d+)_rx_samps.bin', filename)
         if filename_search:
             file_ordering[int(filename_search.group(1))] = filename
 

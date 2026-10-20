@@ -70,7 +70,7 @@ def test_with_pulse_rep_int(yaml_filename, pulse_rep_int, timeout_s=60*2, tmp_ya
         n_pulses_received = np.nan #max(config['CHIRP']['num_pulses'], n_errors)
     else:
         with open("uhd_stdout.log", "r") as f:
-            rex = '.Total pulses attempted: (\d+)'
+            rex = r'.Total pulses attempted: (\d+)'
             n_pulses_received = re.findall(rex, f.read(), re.DOTALL)
             n_pulses_received = int(n_pulses_received[0])
 
