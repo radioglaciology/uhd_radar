@@ -236,12 +236,13 @@ def main(prefix):
     #Change your coax_length to the length of your cable
     plot_matched(matched, sample_rate, tx=chirp, velocity_factor=2/3, loopback=True, coax_length=50)
     plot_raw_matched(matched, sample_rate, tx=chirp)
+    plot_compress(rx, chirp, sample_rate)
 
-    if (len(rx) != len(chirp)):
-        difference = len(rx) - len(chirp)
-        zero_array = np.zeros(int(difference))
-        new_tx = np.concatenate((zero_array, chirp))
-        plot_compress(rx, new_tx, sample_rate)
-    else: 
-        plot_compress(rx, chirp, sample_rate)
+    # if (len(rx) != len(chirp)):
+    #     difference = len(rx) - len(chirp)
+    #     zero_array = np.zeros(int(difference))
+    #     new_tx = np.concatenate((zero_array, chirp))
+    #     plot_compress(rx, new_tx, sample_rate)
+    # else: 
+    #     plot_compress(rx, chirp, sample_rate)
     
