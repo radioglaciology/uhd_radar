@@ -4,7 +4,7 @@ channels:
   - defaults
 dependencies:
   - python>3.8
-  - libboost=1.90.0
+  - boost-cpp
   - uhd<=4.4.0 # Due to open bug with 4.5.0 and above: https://github.com/EttusResearch/uhd/issues/751
   - scipy
   - matplotlib
