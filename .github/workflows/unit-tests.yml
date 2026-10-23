@@ -16,7 +16,7 @@ jobs:
         run: echo "print statement"
 
       - name: Set Up Conda Environment
-        uses: conda-incubator/setup-miniconda@v4
+        uses: conda-incubator/setup-miniconda@v3
         with:
           activate-environment: uhd
           environment-file: environment-rpi.yaml
