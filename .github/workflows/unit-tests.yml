@@ -16,12 +16,12 @@ jobs:
         run: echo "print statement"
 
       - name: Set Up Conda Environment
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           activate-environment: uhd
           environment-file: environment-rpi.yaml
           python-version: 3.11.13
-          auto-activate-base: false
+          auto-activate: false
           
       - name: Cache Conda Environment
         uses: actions/cache@v3
