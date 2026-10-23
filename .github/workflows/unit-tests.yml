@@ -15,11 +15,11 @@ jobs:
       - name: Set Up Conda Environment
         uses: conda-incubator/setup-miniconda@v2
         with:
-          auto-activate-base: false
-          environment-file: environment-rpi.yaml
           activate-environment: uhd
+          environment-file: environment-rpi.yaml
           python-version: 3.11.13
-
+          auto-activate-base: false
+          
       - name: Cache Conda Environment
         uses: actions/cache@v3
         with:
